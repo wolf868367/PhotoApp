@@ -1,0 +1,44 @@
+﻿@page "/error"
+
+<PageTitle>Ошибка</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4><i class="oi oi-warning"></i> Произошла ошибка</h4>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        К сожалению, в приложении произошла непредвиденная ошибка.
+                    </p>
+
+                    <div class="mt-4">
+                        <button class="btn btn-primary me-2" @onclick="GoHome">
+                            <i class="oi oi-home"></i> На главную
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="ReloadPage">
+                            <i class="oi oi-reload"></i> Обновить страницу
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void ReloadPage()
+    {
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+    }
+}

@@ -1,0 +1,310 @@
+﻿@page "/orders"
+@using PhotoApp.Models
+
+<PageTitle>PhotoApp - Заказы</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Список заказов</h2>
+        <a href="/orders/create" class="btn btn-success">
+            <i class="oi oi-plus me-2"></i>Создать заказ
+        </a>
+    </div>
+
+    @if (!AuthService.IsAuthenticated)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Требуется авторизация</h4>
+            <p>Для просмотра заказов необходимо войти в систему.</p>
+            <a href="/login" class="btn btn-primary">Войти</a>
+        </div>
+    }
+    else if (!AuthService.IsOperator && !AuthService.IsAdmin)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Недостаточно прав</h4>
+            <p>Для просмотра заказов требуется роль оператора или администратора.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Статус</label>
+                        <select @bind="selectedStatus" class="form-select">
+                            <option value="">Все статусы</option>
+                            <option value="принят">Принят</option>
+                            <option value="в работе">В работе</option>
+                            <option value="готов">Готов</option>
+                            <option value="выдан">Выдан</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Дата с</label>
+                        <input type="date" @bind="startDate" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Дата по</label>
+                        <input type="date" @bind="endDate" class="form-control" />
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" @onclick="LoadOrders">
+                            <i class="oi oi-reload me-2"></i>Обновить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка заказов...</p>
+            </div>
+        }
+        else if (orders?.Any() == true)
+        {
+            <!-- Таблица заказов -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="oi oi-list-rich me-2"></i>Заказы (@orders.Count)
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Клиент</th>
+                                    <th>Киоск</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                    <th>Сумма</th>
+                                    <th>Оплата</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var order in orders)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>#@order.Id</strong>
+                                        </td>
+                                        <td>@order.Client?.FullName</td>
+                                        <td>@order.Kiosk?.Address</td>
+                                        <td>@order.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(order.Status)">
+                                                @order.Status
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong>@order.TotalAmount.ToString("C")</strong>
+                                        </td>
+                                        <td>
+                                            @if (order.IsPaid)
+                                            {
+                                                <span class="badge bg-success">Оплачен</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning">Не оплачен</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary me-1" 
+                                                    @onclick="() => ShowOrderDetails(order)"
+                                                    title="Подробнее">
+                                                <i class="oi oi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary me-1"
+                                                    @onclick="() => ChangeOrderStatus(order)"
+                                                    title="Изменить статус">
+                                                <i class="oi oi-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <i class="oi oi-list-rich display-1 text-muted mb-3"></i>
+                <h4>Заказы не найдены</h4>
+                <p class="text-muted">Нет заказов, соответствующих выбранным фильтрам.</p>
+                <a href="/orders/create" class="btn btn-primary">Создать первый заказ</a>
+            </div>
+        }
+
+        <!-- Модальное окно деталей заказа -->
+        @if (showDetails && selectedOrder != null)
+        {
+            <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Детали заказа #@selectedOrder.Id</h5>
+                            <button type="button" class="btn-close" @onclick="CloseDetails"></button>
+                        </div>
+                        <div class="modal-body">
+                            <OrderDetails Order="selectedOrder" />
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseDetails">Закрыть</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
+
+    [Inject]
+    private DataService DataService { get; set; } = null!;
+
+    private List<Order> orders = new();
+    private bool isLoading = false;
+    private string selectedStatus = "";
+    private DateTime? startDate;
+    private DateTime? endDate;
+    private bool showDetails = false;
+    private Order? selectedOrder = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && (AuthService.IsOperator || AuthService.IsAdmin))
+        {
+            await LoadOrders();
+        }
+    }
+
+    private async Task LoadOrders()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Временно заглушка - создаем тестовые данные
+            orders = await GetTestOrders();
+            
+            // Позже раскомментируй:
+            // orders = await DataService.GetOrdersAsync();
+            
+            // Применяем фильтры
+            if (!string.IsNullOrEmpty(selectedStatus))
+            {
+                orders = orders.Where(o => o.Status == selectedStatus).ToList();
+            }
+            
+            if (startDate.HasValue)
+            {
+                orders = orders.Where(o => o.CreatedAt >= startDate.Value).ToList();
+            }
+            
+            if (endDate.HasValue)
+            {
+                orders = orders.Where(o => o.CreatedAt <= endDate.Value.AddDays(1)).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки заказов: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowOrderDetails(Order order)
+    {
+        selectedOrder = order;
+        showDetails = true;
+        StateHasChanged();
+    }
+
+    private void CloseDetails()
+    {
+        showDetails = false;
+        selectedOrder = null;
+        StateHasChanged();
+    }
+
+    private async Task ChangeOrderStatus(Order order)
+    {
+        // Здесь будет логика изменения статуса
+        Console.WriteLine($"Изменение статуса заказа {order.Id}");
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "принят" => "bg-primary",
+            "в работе" => "bg-warning",
+            "готов" => "bg-success",
+            "выдан" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    // Временный метод для тестовых данных
+    private async Task<List<Order>> GetTestOrders()
+    {
+        return new List<Order>
+        {
+            new Order 
+            { 
+                Id = 1, 
+                CreatedAt = DateTime.Now.AddDays(-2),
+                Status = "готов",
+                TotalAmount = 315.00m,
+                IsPaid = true,
+                Client = new Client { FullName = "Иванов Алексей Петрович" },
+                Kiosk = new Kiosk { Address = "ТЦ 'Молл', 1 этаж" }
+            },
+            new Order 
+            { 
+                Id = 2, 
+                CreatedAt = DateTime.Now.AddDays(-1),
+                Status = "в работе", 
+                TotalAmount = 540.00m,
+                IsPaid = false,
+                Client = new Client { FullName = "Петрова Мария Сергеевна" },
+                Kiosk = new Kiosk { Address = "ТЦ 'Галерея', 2 этаж" }
+            },
+            new Order 
+            { 
+                Id = 3, 
+                CreatedAt = DateTime.Now,
+                Status = "принят",
+                TotalAmount = 875.00m,
+                IsPaid = false,
+                Client = new Client { FullName = "Сидоров Дмитрий Владимирович" },
+                Kiosk = new Kiosk { Address = "ТРК 'Северный'" }
+            }
+        };
+    }
+}

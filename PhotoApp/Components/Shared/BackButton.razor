@@ -1,0 +1,24 @@
+﻿<button class="btn btn-outline-secondary mb-3" @onclick="GoBack">
+    <i class="oi oi-arrow-left me-2"></i>Назад
+</button>
+
+@code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    [Parameter]
+    public string? FallbackUrl { get; set; }
+
+    private void GoBack()
+    {
+        if (!string.IsNullOrEmpty(FallbackUrl))
+        {
+            Navigation.NavigateTo(FallbackUrl);
+        }
+        else
+        {
+            // Пытаемся вернуться на предыдущую страницу
+            Navigation.NavigateTo("/");
+        }
+    }
+}

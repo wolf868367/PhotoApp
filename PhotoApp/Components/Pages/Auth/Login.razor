@@ -1,0 +1,119 @@
+﻿@page "/login"
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Вход</PageTitle>
+
+<div class="container mt-5">
+    <!-- Кнопка Назад -->
+    <BackButton FallbackUrl="/" />
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Вход в систему</h4>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label for="login" class="form-label">Логин</label>
+                            <InputText id="login" @bind-Value="loginModel.Login" class="form-control" />
+                            <ValidationMessage For="@(() => loginModel.Login)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Пароль</label>
+                            <InputText id="password" type="password" @bind-Value="loginModel.Password" class="form-control" />
+                            <ValidationMessage For="@(() => loginModel.Password)" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            }
+                            Войти
+                        </button>
+                    </EditForm>
+
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">Тестовые данные:</small><br />
+                        <small><strong>Админ:</strong> admin / admin123</small><br />
+                        <small><strong>Оператор:</strong> operator / operator123</small><br />
+                        <small><strong>Клиент:</strong> client1 / client123</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        // Если уже авторизован, идем на главную
+        if (AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Просто проверяем логин/пароль
+            var result = await AuthService.LoginAsync(loginModel.Login, loginModel.Password);
+
+            if (result)
+            {
+                // Успешно - идем на главную
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = "Неверный логин или пароль";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Ошибка при входе в систему";
+            Console.WriteLine($"Login error: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "Логин обязателен")]
+        public string Login { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Пароль обязателен")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

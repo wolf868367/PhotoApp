@@ -1,0 +1,283 @@
+﻿@page "/"
+
+<PageTitle>PhotoApp - Главная</PageTitle>
+
+@if (!AuthService.IsAuthenticated)
+{
+    <!-- Отображение для НЕавторизованных пользователей -->
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="oi oi-info me-2"></i>Добро пожаловать!
+                        </h4>
+                    </div>
+                    <div class="card-body text-center py-5">
+                        <h5 class="card-title">Фотоцентр "PhotoApp"</h5>
+                        <p class="card-text">
+                            Профессиональные услуги печати фотографий, проявки пленок и продажи фототоваров.
+                            Для доступа к системе необходимо авторизоваться.
+                        </p>
+                        <div class="mt-4">
+                            <a href="/login" class="btn btn-primary btn-lg me-3">
+                                <i class="oi oi-account-login me-2"></i>Войти в систему
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Информация о услугах -->
+                <div class="row mt-5">
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="oi oi-image display-4 text-primary mb-3"></i>
+                                <h5>Печать фото</h5>
+                                <p class="card-text">Качественная печать фотографий любых форматов</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="oi oi-film display-4 text-success mb-3"></i>
+                                <h5>Проявка пленок</h5>
+                                <p class="card-text">Профессиональная проявка пленок 35mm и 120</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="oi oi-basket display-4 text-warning mb-3"></i>
+                                <h5>Фототовары</h5>
+                                <p class="card-text">Широкий ассортимент фототоваров и аксессуаров</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Отображение для АВТОРИЗОВАННЫХ пользователей -->
+    <div class="container mt-4">
+        <div class="text-center mb-5">
+            <h1 class="display-4">Добро пожаловать в PhotoApp!</h1>
+            <p class="lead">Система управления фотоцентром</p>
+        </div>
+
+        <div class="row">
+            <!-- Карточка информации о пользователе -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-white bg-primary">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="oi oi-person me-2"></i>Ваш профиль
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2">@AuthService.CurrentUser?.Login</h6>
+                        <p class="card-text">
+                            <span class="badge bg-light text-dark">@GetRoleName()</span>
+                        </p>
+                        <p class="card-text small">@GetRoleDescription()</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Карточка быстрых действий -->
+            <div class="col-md-8 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="oi oi-dashboard me-2"></i>Быстрые действия
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            @GetQuickActions()
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика для операторов и админов -->
+        @if (AuthService.IsOperator || AuthService.IsAdmin)
+        {
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="oi oi-graph me-2"></i>Сегодняшняя статистика
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-primary">@todayOrders</h3>
+                                        <p class="mb-0">Заказов сегодня</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-success">@todayRevenue.ToString("C")</h3>
+                                        <p class="mb-0">Выручка</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-warning">@pendingOrders</h3>
+                                        <p class="mb-0">В работе</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-info">@completedOrders</h3>
+                                        <p class="mb-0">Завершено</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject]
+    private DataService DataService { get; set; } = null!;
+
+    private int todayOrders = 0;
+    private decimal todayRevenue = 0;
+    private int pendingOrders = 0;
+    private int completedOrders = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && (AuthService.IsOperator || AuthService.IsAdmin))
+        {
+            await LoadTodayStats();
+        }
+    }
+
+    private async Task LoadTodayStats()
+    {
+        try
+        {
+            // Временно заглушка - потом заменим на реальные данные
+            todayOrders = 5;
+            todayRevenue = 1250.50m;
+            pendingOrders = 2;
+            completedOrders = 3;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading stats: {ex.Message}");
+        }
+    }
+
+    private string GetRoleName()
+    {
+        return AuthService.CurrentUser?.Role?.Name switch
+        {
+            "admin" => "Администратор",
+            "operator" => "Оператор",
+            "client" => "Клиент",
+            _ => "Пользователь"
+        };
+    }
+
+    private string GetRoleDescription()
+    {
+        return AuthService.CurrentUser?.Role?.Name switch
+        {
+            "admin" => "Полный доступ ко всем функциям системы",
+            "operator" => "Управление заказами, продажами и услугами",
+            "client" => "Просмотр заказов и личного кабинета",
+            _ => "Базовый доступ к системе"
+        };
+    }
+
+    private RenderFragment GetQuickActions() => @<div class="row g-3">
+@if (AuthService.IsOperator || AuthService.IsAdmin)
+    {
+    <div class="col-sm-6 col-lg-4">
+        <a href="/orders/create" class="btn btn-success w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-plus display-6 mb-2"></i>
+            <span>Создать заказ</span>
+            <small class="text-muted">Новый заказ на услуги</small>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <a href="/orders" class="btn btn-info w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-list-rich display-6 mb-2"></i>
+            <span>Все заказы</span>
+            <small class="text-muted">Просмотр и управление</small>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <a href="/products" class="btn btn-warning w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-basket display-6 mb-2"></i>
+            <span>Товары</span>
+            <small class="text-muted">Управление товарами</small>
+        </a>
+    </div>
+    }
+
+@if (AuthService.IsAdmin)
+    {
+    <div class="col-sm-6 col-lg-4">
+        <a href="/services" class="btn btn-secondary w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-wrench display-6 mb-2"></i>
+            <span>Услуги</span>
+            <small class="text-muted">Управление услугами</small>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <a href="/supply" class="btn btn-dark w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-truck display-6 mb-2"></i>
+            <span>Поставки</span>
+            <small class="text-muted">Управление поставками</small>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <a href="/reports" class="btn btn-primary w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-graph display-6 mb-2"></i>
+            <span>Отчеты</span>
+            <small class="text-muted">Аналитика и отчетность</small>
+        </a>
+    </div>
+    }
+
+    <!-- Кнопка Выйти в быстрых действиях -->
+    <div class="col-sm-6 col-lg-4">
+        <button class="btn btn-outline-danger w-100 h-100 d-flex flex-column p-3" @onclick="Logout">
+            <i class="oi oi-account-logout display-6 mb-2"></i>
+            <span>Выйти</span>
+            <small class="text-muted">Завершить сеанс</small>
+        </button>
+    </div>
+</div>;
+
+private void Logout()
+{
+    AuthService.Logout();
+    Navigation.NavigateTo("/login");
+}
+}

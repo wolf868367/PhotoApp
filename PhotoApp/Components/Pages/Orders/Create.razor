@@ -1,0 +1,515 @@
+﻿@page "/orders/create"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Создание заказа</PageTitle>
+
+<div class="container mt-4">
+    <!-- Кнопка Назад -->
+    <BackButton FallbackUrl="/orders" />
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="oi oi-plus me-2"></i>Создание нового заказа
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="orderModel" OnValidSubmit="CreateOrder">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <!-- Информация о клиенте -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">Информация о клиенте</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Поиск клиента по телефону</label>
+                                    <div class="input-group">
+                                        <InputText @bind-Value="searchPhone" class="form-control" placeholder="+79991112233" />
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="SearchClient">
+                                            <i class="oi oi-magnifying-glass"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Или новый клиент</label>
+                                    <button type="button" class="btn btn-outline-primary w-100" @onclick="ShowNewClientForm">
+                                        <i class="oi oi-person me-2"></i>Добавить нового клиента
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Выбранный клиент -->
+                        @if (selectedClient != null)
+                        {
+                            <div class="alert alert-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@selectedClient.FullName</strong>
+                                        <br />
+                                        <small>Телефон: @selectedClient.Phone</small>
+                                        @if (selectedClient.IsPro)
+                                        {
+                                            <br />
+                                            <span class="badge bg-warning">Профессионал</span>
+                                            <small>Скидка: @selectedClient.PersonalDiscount%</small>
+                                        }
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearClient">
+                                        <i class="oi oi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Услуги в заказе -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">Услуги</h5>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Добавить услугу</label>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <select @bind="selectedServiceId" class="form-select">
+                                                <option value="0">Выберите услугу</option>
+                                                @foreach (var service in services)
+                                                {
+                                                    <option value="@service.Id">@service.Name - @service.BasePrice.ToString("C")</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <InputNumber @bind-Value="serviceQuantity" class="form-control" placeholder="Кол-во" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check mt-2">
+                                                <input type="checkbox" @bind="isUrgent" class="form-check-input" id="urgent" />
+                                                <label class="form-check-label" for="urgent">Срочный заказ (x2)</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button type="button" class="btn btn-success w-100" @onclick="AddService" 
+                                                    disabled="@(selectedServiceId == 0 || serviceQuantity <= 0)">
+                                                <i class="oi oi-plus me-2"></i>Добавить
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Список добавленных услуг -->
+                                @if (orderServices.Any())
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Услуга</th>
+                                                    <th>Кол-во</th>
+                                                    <th>Цена</th>
+                                                    <th>Срочный</th>
+                                                    <th>Сумма</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var item in orderServices)
+                                                {
+                                                    <tr>
+                                                        <td>@item.Service?.Name</td>
+                                                        <td>@item.Quantity</td>
+                                                        <td>@item.UnitPrice.ToString("C")</td>
+                                                        <td>
+                                                            @if (item.IsUrgent)
+                                                            {
+                                                                <span class="badge bg-warning">Да</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary">Нет</span>
+                                                            }
+                                                        </td>
+                                                        <td><strong>@((item.Quantity * item.UnitPrice).ToString("C"))</strong></td>
+                                                        <td>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                                    @onclick="() => RemoveService(item)">
+                                                                <i class="oi oi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Товары в заказе -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">Товары</h5>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Добавить товар</label>
+                                    <div class="row g-2">
+                                        <div class="col-md-5">
+                                            <select @bind="selectedProductId" class="form-select">
+                                                <option value="0">Выберите товар</option>
+                                                @foreach (var product in availableProducts)
+                                                {
+                                                    <option value="@product.Id">@product.Name - @product.SellingPrice.ToString("C") (остаток: @product.StockQuantity)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <InputNumber @bind-Value="productQuantity" class="form-control" placeholder="Кол-во" />
+                                        </div>
+                                        <div class="col-md-5">
+                                            <button type="button" class="btn btn-success w-100" @onclick="AddProduct" 
+                                                    disabled="@(selectedProductId == 0 || productQuantity <= 0)">
+                                                <i class="oi oi-plus me-2"></i>Добавить товар
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Список добавленных товаров -->
+                                @if (orderProducts.Any())
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Товар</th>
+                                                    <th>Кол-во</th>
+                                                    <th>Цена</th>
+                                                    <th>Сумма</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var item in orderProducts)
+                                                {
+                                                    <tr>
+                                                        <td>@item.Product?.Name</td>
+                                                        <td>@item.Quantity</td>
+                                                        <td>@item.UnitPrice.ToString("C")</td>
+                                                        <td><strong>@((item.Quantity * item.UnitPrice).ToString("C"))</strong></td>
+                                                        <td>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                                    @onclick="() => RemoveProduct(item)">
+                                                                <i class="oi oi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Итоговая информация -->
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Примечание к заказу</label>
+                                    <InputTextArea @bind-Value="orderModel.Notes" class="form-control" rows="3" 
+                                                  placeholder="Дополнительная информация о заказе..." />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Итоговая сумма</h6>
+                                        
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Услуги:</span>
+                                            <span>@servicesTotal.ToString("C")</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Товары:</span>
+                                            <span>@productsTotal.ToString("C")</span>
+                                        </div>
+                                        
+                                        @if (selectedClient?.IsPro == true && selectedClient.PersonalDiscount > 0)
+                                        {
+                                            <div class="d-flex justify-content-between mb-2 text-success">
+                                                <span>Скидка (@selectedClient.PersonalDiscount%):</span>
+                                                <span>-@discountAmount.ToString("C")</span>
+                                            </div>
+                                        }
+                                        
+                                        <hr />
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <strong>Итого:</strong>
+                                            <strong class="text-primary fs-5">@totalAmount.ToString("C")</strong>
+                                        </div>
+
+                                        <div class="form-check mb-3">
+                                            <input type="checkbox" @bind="orderModel.IsPaid" class="form-check-input" id="isPaid" />
+                                            <label class="form-check-label" for="isPaid">Заказ оплачен</label>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary w-100" disabled="@(!CanCreateOrder)">
+                                            <i class="oi oi-check me-2"></i>Создать заказ
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
+
+    [Inject]
+    private DataService DataService { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    private OrderModel orderModel = new();
+    private List<Service> services = new();
+    private List<Product> availableProducts = new();
+    private Client? selectedClient = null;
+    private string searchPhone = "";
+
+    // Услуги
+    private int selectedServiceId = 0;
+    private int serviceQuantity = 1;
+    private bool isUrgent = false;
+    private List<OrderServiceItem> orderServices = new();
+
+    // Товары
+    private int selectedProductId = 0;
+    private int productQuantity = 1;
+    private List<OrderProductItem> orderProducts = new();
+
+    // Вычисляемые свойства
+    private decimal servicesTotal => orderServices.Sum(s => s.Quantity * s.UnitPrice);
+    private decimal productsTotal => orderProducts.Sum(p => p.Quantity * p.UnitPrice);
+    private decimal discountAmount => selectedClient?.IsPro == true ? (servicesTotal + productsTotal) * (selectedClient.PersonalDiscount / 100) : 0;
+    private decimal totalAmount => servicesTotal + productsTotal - discountAmount;
+
+    private bool CanCreateOrder => selectedClient != null && (orderServices.Any() || orderProducts.Any());
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsAuthenticated || (!AuthService.IsOperator && !AuthService.IsAdmin))
+        {
+            Navigation.NavigateTo("/orders");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Загружаем реальные данные из базы
+            services = await DataService.GetServicesAsync();
+            availableProducts = (await DataService.GetProductsAsync()).Where(p => p.StockQuantity > 0).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки данных: {ex.Message}");
+            // Если данные не загрузились, показываем пустые списки
+            services = new List<Service>();
+            availableProducts = new List<Product>();
+        }
+    }
+
+    private async Task SearchClient()
+    {
+        if (string.IsNullOrEmpty(searchPhone))
+            return;
+
+        try
+        {
+            // Ищем клиента в базе по телефону
+            selectedClient = await DataService.GetClientByPhoneAsync(searchPhone);
+            if (selectedClient == null)
+            {
+                // Можно показать сообщение, что клиент не найден
+                Console.WriteLine($"Клиент с телефоном {searchPhone} не найден");
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка поиска клиента: {ex.Message}");
+        }
+    }
+
+    private void ShowNewClientForm()
+    {
+        // Здесь будет форма создания нового клиента
+        Console.WriteLine("Открытие формы создания нового клиента");
+        // Временно используем тестового клиента для демонстрации
+        selectedClient = new Client 
+        { 
+            Id = 0, 
+            FullName = "Новый клиент", 
+            Phone = searchPhone,
+            IsPro = false,
+            PersonalDiscount = 0.00m
+        };
+        StateHasChanged();
+    }
+
+    private void ClearClient()
+    {
+        selectedClient = null;
+        searchPhone = "";
+        StateHasChanged();
+    }
+
+    private void AddService()
+    {
+        var service = services.FirstOrDefault(s => s.Id == selectedServiceId);
+        if (service == null) return;
+
+        var orderService = new OrderServiceItem
+        {
+            Service = service,
+            Quantity = serviceQuantity,
+            UnitPrice = isUrgent ? service.BasePrice * 2 : service.BasePrice,
+            IsUrgent = isUrgent
+        };
+
+        orderServices.Add(orderService);
+        
+        // Сброс формы
+        selectedServiceId = 0;
+        serviceQuantity = 1;
+        isUrgent = false;
+        StateHasChanged();
+    }
+
+    private void RemoveService(OrderServiceItem service)
+    {
+        orderServices.Remove(service);
+        StateHasChanged();
+    }
+
+    private void AddProduct()
+    {
+        var product = availableProducts.FirstOrDefault(p => p.Id == selectedProductId);
+        if (product == null) return;
+
+        // Проверяем наличие товара
+        if (product.StockQuantity < productQuantity)
+        {
+            Console.WriteLine($"Недостаточно товара на складе. Доступно: {product.StockQuantity}");
+            return;
+        }
+
+        var orderProduct = new OrderProductItem
+        {
+            Product = product,
+            Quantity = productQuantity,
+            UnitPrice = product.SellingPrice
+        };
+
+        orderProducts.Add(orderProduct);
+        
+        // Сброс формы
+        selectedProductId = 0;
+        productQuantity = 1;
+        StateHasChanged();
+    }
+
+    private void RemoveProduct(OrderProductItem product)
+    {
+        orderProducts.Remove(product);
+        StateHasChanged();
+    }
+
+    private async Task CreateOrder()
+    {
+        if (!CanCreateOrder) return;
+
+        try
+        {
+            // Создаем объект заказа для сохранения
+            var newOrder = new Order
+            {
+                ClientId = selectedClient!.Id,
+                KioskId = 1, // Временно фиксированный киоск
+                BranchId = 1, // Временно фиксированный филиал
+                Status = "принят",
+                TotalAmount = totalAmount,
+                IsPaid = orderModel.IsPaid,
+                CreatedAt = DateTime.Now,
+                OrderServices = orderServices.Select(os => new OrderService
+                {
+                    ServiceId = os.Service.Id,
+                    Quantity = os.Quantity,
+                    UnitPrice = os.UnitPrice,
+                    IsUrgent = os.IsUrgent
+                }).ToList(),
+                Sales = orderProducts.Select(op => new Sale
+                {
+                    ProductId = op.Product.Id,
+                    Quantity = op.Quantity,
+                    UnitPrice = op.UnitPrice,
+                    KioskId = 1, // Временно фиксированный киоск
+                    CreatedAt = DateTime.Now
+                }).ToList()
+            };
+
+            // Сохраняем заказ в базу
+            await DataService.AddOrderAsync(newOrder);
+            
+            Console.WriteLine($"Заказ успешно создан! ID: {newOrder.Id}");
+            
+            // Перенаправляем на список заказов
+            Navigation.NavigateTo("/orders");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка создания заказа: {ex.Message}");
+        }
+    }
+
+    // Модели для формы
+    public class OrderModel
+    {
+        public string Notes { get; set; } = string.Empty;
+        public bool IsPaid { get; set; } = false;
+    }
+
+    public class OrderServiceItem
+    {
+        public Service Service { get; set; } = null!;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public bool IsUrgent { get; set; }
+    }
+
+    public class OrderProductItem
+    {
+        public Product Product { get; set; } = null!;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+    }
+}

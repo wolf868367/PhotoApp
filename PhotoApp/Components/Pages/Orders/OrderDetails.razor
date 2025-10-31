@@ -1,0 +1,106 @@
+﻿@using PhotoApp.Models
+
+<div class="row">
+    <div class="col-md-6">
+        <h6>Информация о заказе</h6>
+        <table class="table table-sm">
+            <tr>
+                <td><strong>Клиент:</strong></td>
+                <td>@Order?.Client?.FullName</td>
+            </tr>
+            <tr>
+                <td><strong>Телефон:</strong></td>
+                <td>@Order?.Client?.Phone</td>
+            </tr>
+            <tr>
+                <td><strong>Киоск:</strong></td>
+                <td>@Order?.Kiosk?.Address</td>
+            </tr>
+            <tr>
+                <td><strong>Филиал:</strong></td>
+                <td>@Order?.Branch?.Name</td>
+            </tr>
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h6>Статус и оплата</h6>
+        <table class="table table-sm">
+            <tr>
+                <td><strong>Статус:</strong></td>
+                <td>
+                    <span class="badge @GetStatusBadgeClass(Order?.Status ?? "")">
+                        @Order?.Status
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Оплата:</strong></td>
+                <td>
+                    @if (Order?.IsPaid == true)
+                    {
+                        <span class="badge bg-success">Оплачен</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning">Не оплачен</span>
+                    }
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Сумма:</strong></td>
+                <td><strong>@Order?.TotalAmount.ToString("C")</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Дата создания:</strong></td>
+                <td>@Order?.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+@if (Order?.OrderServices?.Any() == true)
+{
+    <div class="mt-4">
+        <h6>Услуги в заказе</h6>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Услуга</th>
+                        <th>Количество</th>
+                        <th>Цена</th>
+                        <th>Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var service in Order.OrderServices)
+                    {
+                        <tr>
+                            <td>@service.Service?.Name</td>
+                            <td>@service.Quantity</td>
+                            <td>@service.UnitPrice.ToString("C")</td>
+                            <td>@((service.Quantity * service.UnitPrice).ToString("C"))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Order? Order { get; set; }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "принят" => "bg-primary",
+            "в работе" => "bg-warning",
+            "готов" => "bg-success",
+            "выдан" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+}
