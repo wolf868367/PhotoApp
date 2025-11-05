@@ -13,6 +13,10 @@ namespace PhotoApp.Services
             _dataService = dataService;
         }
 
+        private Client? _currentClient;
+        public Client? CurrentClient => _currentClient;
+
+
         public ApplicationUser? CurrentUser => _currentUser;
         public bool IsAuthenticated => _currentUser != null;
         public bool IsAdmin => _currentUser?.Role?.Name == "admin";
@@ -23,12 +27,18 @@ namespace PhotoApp.Services
         {
             try
             {
-                // Просто проверяем логин/пароль в базе
                 var user = await _dataService.GetUserByLoginAsync(login, password);
 
                 if (user != null)
                 {
-                    _currentUser = user; // Сохраняем пользователя в текущей сессии
+                    _currentUser = user;
+
+                    // Если пользователь - клиент, загружаем данные клиента
+                    if (user.Role?.Name == "client")
+                    {
+                        _currentClient = await _dataService.GetClientByUserIdAsync(user.Id);
+                    }
+
                     return true;
                 }
 
@@ -41,9 +51,11 @@ namespace PhotoApp.Services
             }
         }
 
+
         public void Logout()
         {
-            _currentUser = null; // Просто очищаем текущего пользователя
+            _currentUser = null;
+            _currentClient = null;
         }
     }
 }

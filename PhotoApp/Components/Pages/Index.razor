@@ -64,7 +64,6 @@
 }
 else
 {
-    <!-- Отображение для АВТОРИЗОВАННЫХ пользователей -->
     <div class="container mt-4">
         <div class="text-center mb-5">
             <h1 class="display-4">Добро пожаловать в PhotoApp!</h1>
@@ -86,6 +85,13 @@ else
                             <span class="badge bg-light text-dark">@GetRoleName()</span>
                         </p>
                         <p class="card-text small">@GetRoleDescription()</p>
+                        @if (AuthService.IsClient && AuthService.CurrentClient != null)
+                        {
+                            <p class="card-text small">
+                                <strong>@AuthService.CurrentClient.FullName</strong><br />
+                                Телефон: @AuthService.CurrentClient.Phone
+                            </p>
+                        }
                     </div>
                 </div>
             </div>
@@ -107,7 +113,7 @@ else
             </div>
         </div>
 
-        <!-- Статистика для операторов и админов -->
+        <!-- Статистика для разных ролей -->
         @if (AuthService.IsOperator || AuthService.IsAdmin)
         {
             <div class="row mt-4">
@@ -150,6 +156,49 @@ else
                 </div>
             </div>
         }
+        else if (AuthService.IsClient)
+        {
+            <!-- Статистика для клиентов -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="oi oi-graph me-2"></i>Моя статистика
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-primary">@myTotalOrders</h3>
+                                        <p class="mb-0">Всего заказов</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-warning">@myPendingOrders</h3>
+                                        <p class="mb-0">В работе</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-success">@myCompletedOrders</h3>
+                                        <p class="mb-0">Завершено</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="border rounded p-3">
+                                        <h3 class="text-info">@myTotalSpent.ToString("C")</h3>
+                                        <p class="mb-0">Всего потрачено</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 }
 
@@ -168,11 +217,24 @@ else
     private int pendingOrders = 0;
     private int completedOrders = 0;
 
+    // Статистика для клиентов
+    private int myTotalOrders = 0;
+    private int myPendingOrders = 0;
+    private int myCompletedOrders = 0;
+    private decimal myTotalSpent = 0;
+
     protected override async Task OnInitializedAsync()
     {
-        if (AuthService.IsAuthenticated && (AuthService.IsOperator || AuthService.IsAdmin))
+        if (AuthService.IsAuthenticated)
         {
-            await LoadTodayStats();
+            if (AuthService.IsOperator || AuthService.IsAdmin)
+            {
+                await LoadTodayStats();
+            }
+            else if (AuthService.IsClient)
+            {
+                await LoadClientStats();
+            }
         }
     }
 
@@ -180,15 +242,52 @@ else
     {
         try
         {
-            // Временно заглушка - потом заменим на реальные данные
-            todayOrders = 5;
-            todayRevenue = 1250.50m;
-            pendingOrders = 2;
-            completedOrders = 3;
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
+
+            var allOrders = await DataService.GetOrdersAsync();
+            var todayOrdersList = allOrders
+                .Where(o => o.CreatedAt >= today && o.CreatedAt < tomorrow)
+                .ToList();
+
+            todayOrders = todayOrdersList.Count;
+            todayRevenue = todayOrdersList.Sum(o => o.TotalAmount);
+            pendingOrders = todayOrdersList.Count(o => o.Status == "в работе" || o.Status == "принят");
+            completedOrders = todayOrdersList.Count(o => o.Status == "готов" || o.Status == "выдан");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading stats: {ex.Message}");
+            todayOrders = 0;
+            todayRevenue = 0;
+            pendingOrders = 0;
+            completedOrders = 0;
+        }
+    }
+
+    private async Task LoadClientStats()
+    {
+        try
+        {
+            if (AuthService.CurrentClient == null) return;
+
+            var allOrders = await DataService.GetOrdersAsync();
+            var myOrders = allOrders
+                .Where(o => o.ClientId == AuthService.CurrentClient.Id)
+                .ToList();
+
+            myTotalOrders = myOrders.Count;
+            myPendingOrders = myOrders.Count(o => o.Status == "в работе" || o.Status == "принят");
+            myCompletedOrders = myOrders.Count(o => o.Status == "готов" || o.Status == "выдан");
+            myTotalSpent = myOrders.Sum(o => o.TotalAmount);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading client stats: {ex.Message}");
+            myTotalOrders = 0;
+            myPendingOrders = 0;
+            myCompletedOrders = 0;
+            myTotalSpent = 0;
         }
     }
 
@@ -215,6 +314,7 @@ else
     }
 
     private RenderFragment GetQuickActions() => @<div class="row g-3">
+    <!-- Действия для операторов и админов -->
 @if (AuthService.IsOperator || AuthService.IsAdmin)
     {
     <div class="col-sm-6 col-lg-4">
@@ -240,32 +340,94 @@ else
     </div>
     }
 
-@if (AuthService.IsAdmin)
+    <!-- Действия для клиентов -->
+@if (AuthService.IsClient)
     {
     <div class="col-sm-6 col-lg-4">
-        <a href="/services" class="btn btn-secondary w-100 h-100 d-flex flex-column p-3">
-            <i class="oi oi-wrench display-6 mb-2"></i>
-            <span>Услуги</span>
-            <small class="text-muted">Управление услугами</small>
+        <a href="/orders/create" class="btn btn-success w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-plus display-6 mb-2"></i>
+            <span>Создать заказ</span>
+            <small class="text-muted">Новый заказ на услуги</small>
         </a>
     </div>
     <div class="col-sm-6 col-lg-4">
-        <a href="/supply" class="btn btn-dark w-100 h-100 d-flex flex-column p-3">
-            <i class="oi oi-truck display-6 mb-2"></i>
-            <span>Поставки</span>
-            <small class="text-muted">Управление поставками</small>
+        <a href="/orders" class="btn btn-info w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-list-rich display-6 mb-2"></i>
+            <span>Мои заказы</span>
+            <small class="text-muted">Просмотр моих заказов</small>
         </a>
     </div>
     <div class="col-sm-6 col-lg-4">
-        <a href="/reports" class="btn btn-primary w-100 h-100 d-flex flex-column p-3">
-            <i class="oi oi-graph display-6 mb-2"></i>
-            <span>Отчеты</span>
-            <small class="text-muted">Аналитика и отчетность</small>
+        <a href="/products" class="btn btn-warning w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-basket display-6 mb-2"></i>
+            <span>Товары</span>
+            <small class="text-muted">Просмотр товаров</small>
         </a>
     </div>
     }
 
-    <!-- Кнопка Выйти в быстрых действиях -->
+    <!-- Действия только для админов -->
+@if (AuthService.IsAdmin)
+{
+        <!-- Управление пользователями -->
+        <div class="col-sm-6 col-lg-4">
+            <a href="/users" class="btn btn-outline-dark w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-people display-6 mb-2"></i>
+                <span>Пользователи</span>
+                <small class="text-muted">Управление пользователями</small>
+            </a>
+        </div>
+
+        <!-- Управление клиентами -->
+        <div class="col-sm-6 col-lg-4">
+            <a href="/clients" class="btn btn-outline-primary w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-person display-6 mb-2"></i>
+                <span>Клиенты</span>
+                <small class="text-muted">Управление клиентами</small>
+            </a>
+        </div>
+
+        <!-- Управление сотрудниками -->
+        <div class="col-sm-6 col-lg-4">
+            <a href="/employees" class="btn btn-outline-success w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-briefcase display-6 mb-2"></i>
+                <span>Сотрудники</span>
+                <small class="text-muted">Управление сотрудниками</small>
+            </a>
+        </div>
+
+        <!-- Остальные действия админа -->
+        <div class="col-sm-6 col-lg-4">
+            <a href="/services" class="btn btn-secondary w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-wrench display-6 mb-2"></i>
+                <span>Услуги</span>
+                <small class="text-muted">Управление услугами</small>
+            </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <a href="/supply" class="btn btn-dark w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-truck display-6 mb-2"></i>
+                <span>Поставки</span>
+                <small class="text-muted">Управление поставками</small>
+            </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <a href="/suppliers" class="btn btn-outline-info w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-people display-6 mb-2"></i>
+                <span>Поставщики</span>
+                <small class="text-muted">Управление поставщиками</small>
+            </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <a href="/reports" class="btn btn-primary w-100 h-100 d-flex flex-column p-3">
+                <i class="oi oi-graph display-6 mb-2"></i>
+                <span>Отчеты</span>
+                <small class="text-muted">Аналитика и отчетность</small>
+            </a>
+        </div>
+}
+
+    <!-- Общие действия для всех -->
     <div class="col-sm-6 col-lg-4">
         <button class="btn btn-outline-danger w-100 h-100 d-flex flex-column p-3" @onclick="Logout">
             <i class="oi oi-account-logout display-6 mb-2"></i>
@@ -273,6 +435,15 @@ else
             <small class="text-muted">Завершить сеанс</small>
         </button>
     </div>
+
+    <div class="col-sm-6 col-lg-4">
+        <a href="/profile" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column p-3">
+            <i class="oi oi-person display-6 mb-2"></i>
+            <span>Профиль</span>
+            <small class="text-muted">Личный кабинет</small>
+        </a>
+    </div>
+
 </div>;
 
 private void Logout()

@@ -1,0 +1,329 @@
+﻿@page "/orders/edit/{id:int}"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Редактирование заказа</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/orders" />
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="oi oi-pencil me-2"></i>Редактирование заказа #@orderId
+                    </h4>
+                </div>
+                <div class="card-body">
+                    @if (!AuthService.IsAdmin)
+                    {
+                        <div class="alert alert-warning text-center">
+                            <h4>Недостаточно прав</h4>
+                            <p>Для редактирования заказов требуется роль администратора.</p>
+                            <a href="/orders" class="btn btn-primary">Вернуться к заказам</a>
+                        </div>
+                    }
+                    else if (isLoading)
+                    {
+                        <div class="text-center p-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Загрузка...</span>
+                            </div>
+                            <p class="mt-2">Загрузка данных заказа...</p>
+                        </div>
+                    }
+                    else if (order == null)
+                    {
+                        <div class="alert alert-danger text-center">
+                            <h4>Заказ не найден</h4>
+                            <p>Заказ с ID #@orderId не существует.</p>
+                            <a href="/orders" class="btn btn-primary">Вернуться к заказам</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <EditForm Model="orderModel" OnValidSubmit="UpdateOrder">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <!-- Информация о клиенте -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="border-bottom pb-2">Информация о клиенте</h5>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Клиент</label>
+                                        <input class="form-control" value="@order.Client?.FullName" readonly />
+                                        <small class="text-muted">Телефон: @order.Client?.Phone</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Статус заказа *</label>
+                                        <InputSelect @bind-Value="orderModel.Status" class="form-select">
+                                            <option value="принят">Принят</option>
+                                            <option value="в работе">В работе</option>
+                                            <option value="готов">Готов</option>
+                                            <option value="выдан">Выдан</option>
+                                            <option value="отменен">Отменен</option>
+                                        </InputSelect>
+                                        <ValidationMessage For="@(() => orderModel.Status)" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Услуги в заказе -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="border-bottom pb-2">Услуги в заказе</h5>
+
+                                    @if (order.OrderServices?.Any() == true)
+                                    {
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Услуга</th>
+                                                        <th>Кол-во</th>
+                                                        <th>Цена</th>
+                                                        <th>Срочный</th>
+                                                        <th>Сумма</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var item in order.OrderServices)
+                                                    {
+                                                        <tr>
+                                                            <td>@item.Service?.Name</td>
+                                                            <td>@item.Quantity</td>
+                                                            <td>@item.UnitPrice.ToString("C")</td>
+                                                            <td>
+                                                                @if (item.IsUrgent)
+                                                                {
+                                                                    <span class="badge bg-warning">Да</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge bg-secondary">Нет</span>
+                                                                }
+                                                            </td>
+                                                            <td><strong>@((item.Quantity * item.UnitPrice).ToString("C"))</strong></td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr class="table-active">
+                                                        <td colspan="4" class="text-end"><strong>Итого по услугам:</strong></td>
+                                                        <td><strong>@order.OrderServices.Sum(os => os.Quantity * os.UnitPrice).ToString("C")</strong></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-info">
+                                            <i class="oi oi-info me-2"></i>В заказе нет услуг
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Товары в заказе -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="border-bottom pb-2">Товары в заказе</h5>
+
+                                    @if (order.Sales?.Any() == true)
+                                    {
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Товар</th>
+                                                        <th>Кол-во</th>
+                                                        <th>Цена</th>
+                                                        <th>Сумма</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var item in order.Sales)
+                                                    {
+                                                        <tr>
+                                                            <td>@item.Product?.Name</td>
+                                                            <td>@item.Quantity</td>
+                                                            <td>@item.UnitPrice.ToString("C")</td>
+                                                            <td><strong>@((item.Quantity * item.UnitPrice).ToString("C"))</strong></td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr class="table-active">
+                                                        <td colspan="3" class="text-end"><strong>Итого по товарам:</strong></td>
+                                                        <td><strong>@order.Sales.Sum(s => s.Quantity * s.UnitPrice).ToString("C")</strong></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-info">
+                                            <i class="oi oi-info me-2"></i>В заказе нет товаров
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Итоговая информация -->
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label class="form-label">Дата создания</label>
+                                        <input class="form-control" value="@order.CreatedAt.ToString("dd.MM.yyyy HH:mm")" readonly />
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Общая сумма заказа</label>
+                                        <input class="form-control" value="@order.TotalAmount.ToString("C")" readonly />
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Управление заказом</h6>
+
+                                            <div class="form-check mb-3">
+                                                <InputCheckbox @bind-Value="orderModel.IsPaid" class="form-check-input" id="isPaid" />
+                                                <label class="form-check-label" for="isPaid">Заказ оплачен</label>
+                                            </div>
+
+                                            <div class="d-grid gap-2">
+                                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                                    @if (isSaving)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                                    }
+                                                    <i class="oi oi-check me-2"></i>Сохранить изменения
+                                                </button>
+                                                <a href="/orders" class="btn btn-secondary">Отмена</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
+
+    [Inject]
+    private DataService DataService { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    private Order? order = null;
+    private OrderModel orderModel = new();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    private int orderId => Id;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && AuthService.IsAdmin)
+        {
+            await LoadOrder();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadOrder()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            order = await DataService.GetOrderByIdAsync(orderId);
+            if (order != null)
+            {
+                orderModel = new OrderModel
+                {
+                    Status = order.Status,
+                    IsPaid = order.IsPaid
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки заказа: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateOrder()
+    {
+        if (order == null) return;
+
+        isSaving = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Обновляем данные заказа
+            order.Status = orderModel.Status;
+            order.IsPaid = orderModel.IsPaid;
+
+            await DataService.UpdateOrderAsync(order);
+            successMessage = "Заказ успешно обновлен!";
+
+            // Перенаправляем на список заказов через секунду
+            await Task.Delay(1000);
+            Navigation.NavigateTo("/orders");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка обновления заказа: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    public class OrderModel
+    {
+        [Required(ErrorMessage = "Статус обязателен")]
+        public string Status { get; set; } = "принят";
+
+        public bool IsPaid { get; set; } = false;
+    }
+}

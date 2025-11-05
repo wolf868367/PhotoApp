@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PhotoApp.Models
 {
+    [Table("order_services")]
     public class OrderService
     {
         [Key]

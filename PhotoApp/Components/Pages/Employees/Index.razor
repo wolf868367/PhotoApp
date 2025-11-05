@@ -1,0 +1,328 @@
+﻿@page "/employees"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Сотрудники</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Управление сотрудниками</h2>
+        <button class="btn btn-success" @onclick="ShowAddEmployee">
+            <i class="oi oi-plus me-2"></i>Добавить сотрудника
+        </button>
+    </div>
+
+    @if (!AuthService.IsAuthenticated || !AuthService.IsAdmin)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Недостаточно прав</h4>
+            <p>Для управления сотрудниками требуется роль администратора.</p>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="oi oi-briefcase me-2"></i>Список сотрудников
+                    <span class="badge bg-primary">@employees.Count</span>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                @if (isLoading)
+                {
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <p class="mt-2">Загрузка сотрудников...</p>
+                    </div>
+                }
+                else if (employees.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Телефон</th>
+                                    <th>Должность</th>
+                                    <th>Филиал</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var employee in employees)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@employee.FullName</strong>
+                                        </td>
+                                        <td>
+                                            <a href="tel:@employee.Phone" class="text-decoration-none">
+                                                <i class="oi oi-phone me-1"></i>@employee.Phone
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(employee.Position))
+                                            {
+                                                <span class="badge bg-info">@employee.Position</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @employee.Branch?.Name
+                                        </td>                                    
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary me-1"
+                                                    @onclick="() => EditEmployee(employee)"
+                                                    title="Редактировать">
+                                                <i class="oi oi-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="oi oi-briefcase display-1 text-muted mb-3"></i>
+                        <h4>Сотрудники не найдены</h4>
+                        <p class="text-muted">Нет зарегистрированных сотрудников.</p>
+                        <button class="btn btn-primary" @onclick="ShowAddEmployee">
+                            <i class="oi oi-plus me-2"></i>Добавить первого сотрудника
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления/редактирования сотрудника -->
+        @if (showEmployeeModal)
+        {
+            <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@(editingEmployee?.Id > 0 ? "Редактирование сотрудника" : "Добавление сотрудника")</h5>
+                            <button type="button" class="btn-close" @onclick="CloseEmployeeModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <EditForm Model="employeeModel" OnValidSubmit="SaveEmployee">
+                                <DataAnnotationsValidator />
+
+                                <div class="mb-3">
+                                    <label class="form-label">ФИО *</label>
+                                    <InputText @bind-Value="employeeModel.FullName" class="form-control" />
+                                    <ValidationMessage For="@(() => employeeModel.FullName)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Телефон *</label>
+                                    <InputText @bind-Value="employeeModel.Phone" class="form-control" placeholder="+79991112233" />
+                                    <ValidationMessage For="@(() => employeeModel.Phone)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Должность</label>
+                                    <InputText @bind-Value="employeeModel.Position" class="form-control" placeholder="Оператор, менеджер..." />
+                                </div>
+
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-secondary" @onclick="CloseEmployeeModal">Отмена</button>
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        @if (isSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        }
+                                        Сохранить
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject] private AuthService AuthService { get; set; } = null!;
+    [Inject] private DataService DataService { get; set; } = null!;
+
+    private List<Employee> employees = new();
+    private bool isLoading = true;
+    private bool showEmployeeModal = false;
+    private bool isSaving = false;
+    private Employee? editingEmployee = null;
+    private EmployeeModel employeeModel = new();
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && AuthService.IsAdmin)
+        {
+            await LoadEmployees();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadEmployees()
+    {
+        isLoading = true;
+        try
+        {
+            employees = await DataService.GetEmployeesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки сотрудников: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAddEmployee()
+    {
+        editingEmployee = null;
+        employeeModel = new EmployeeModel();
+        showEmployeeModal = true;
+    }
+
+    private void EditEmployee(Employee employee)
+    {
+        editingEmployee = employee;
+        employeeModel = new EmployeeModel
+        {
+            FullName = employee.FullName,
+            Phone = employee.Phone,
+            Position = employee.Position ?? "",
+        };
+        showEmployeeModal = true;
+    }
+
+    private void CloseEmployeeModal()
+    {
+        showEmployeeModal = false;
+        editingEmployee = null;
+        employeeModel = new EmployeeModel();
+    }
+
+    private async Task SaveEmployee()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            if (editingEmployee?.Id > 0)
+            {
+                // Редактирование
+                editingEmployee.FullName = employeeModel.FullName;
+                editingEmployee.Phone = employeeModel.Phone;
+                editingEmployee.Position = employeeModel.Position;
+
+                await DataService.UpdateEmployeeAsync(editingEmployee);
+                successMessage = "Сотрудник успешно обновлен!";
+            }
+            else
+            {
+                // Добавление
+                var newEmployee = new Employee
+                {
+                    FullName = employeeModel.FullName,
+                    Phone = employeeModel.Phone,
+                    Position = employeeModel.Position,
+                    UserId = await GetOrCreateUserForEmployee() // Создаем пользователя для сотрудника
+                };
+
+                await DataService.AddEmployeeAsync(newEmployee);
+                successMessage = "Сотрудник успешно добавлен!";
+            }
+
+            CloseEmployeeModal();
+            await LoadEmployees();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка сохранения: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<int> GetOrCreateUserForEmployee()
+    {
+        // Ищем существующего пользователя
+        var existingUser = await DataService.GetUserByLoginAsync(employeeModel.Phone, employeeModel.Phone);
+        if (existingUser != null)
+        {
+            return existingUser.Id;
+        }
+
+        // Создаем нового пользователя с ролью operator
+        var operatorRole = (await DataService.GetRolesAsync()).FirstOrDefault(r => r.Name == "operator");
+        if (operatorRole == null)
+        {
+            throw new Exception("Роль 'operator' не найдена в системе");
+        }
+
+        var newUser = new ApplicationUser
+        {
+            Login = employeeModel.Phone,
+            Password = employeeModel.Phone, // Пароль = телефон по умолчанию
+            RoleId = operatorRole.Id
+        };
+
+        await DataService.AddUserAsync(newUser);
+
+        var user = await DataService.GetUserByLoginAsync(employeeModel.Phone, employeeModel.Phone);
+        return user?.Id ?? 0;
+    }
+
+    public class EmployeeModel
+    {
+        [Required(ErrorMessage = "ФИО обязательно")]
+        [StringLength(100, ErrorMessage = "ФИО не должно превышать 100 символов")]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Телефон обязателен")]
+        [Phone(ErrorMessage = "Введите корректный номер телефона")]
+        [StringLength(15, ErrorMessage = "Телефон не должен превышать 15 символов")]
+        public string Phone { get; set; } = string.Empty;
+
+        [StringLength(100, ErrorMessage = "Должность не должна превышать 100 символов")]
+        public string Position { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+    }
+}

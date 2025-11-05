@@ -1,0 +1,378 @@
+﻿@page "/suppliers"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Поставщики</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Управление поставщиками</h2>
+        @if (AuthService.IsAdmin)
+        {
+            <button class="btn btn-success" @onclick="ShowAddSupplier">
+                <i class="oi oi-plus me-2"></i>Добавить поставщика
+            </button>
+        }
+    </div>
+
+    @if (!AuthService.IsAuthenticated)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Требуется авторизация</h4>
+            <p>Для просмотра поставщиков необходимо войти в систему.</p>
+            <a href="/login" class="btn btn-primary">Войти</a>
+        </div>
+    }
+    else if (!AuthService.IsAdmin)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Недостаточно прав</h4>
+            <p>Для управления поставщиками требуется роль администратора.</p>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                @errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">
+                @successMessage
+            </div>
+        }
+
+        <!-- Список поставщиков -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="oi oi-truck me-2"></i>Список поставщиков
+                    @if (suppliers != null)
+                    {
+                        <span class="badge bg-primary">@suppliers.Count</span>
+                    }
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                @if (isLoading)
+                {
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <p class="mt-2">Загрузка поставщиков...</p>
+                    </div>
+                }
+                else if (suppliers?.Any() == true)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Контактное лицо</th>
+                                    <th>Телефон</th>
+                                    <th>Специализация</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var supplier in suppliers)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@supplier.Name</strong>
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(supplier.ContactPerson))
+                                            {
+                                                <span>@supplier.ContactPerson</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a href="tel:@supplier.Phone" class="text-decoration-none">
+                                                <i class="oi oi-phone me-1"></i>@supplier.Phone
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(supplier.Specialization))
+                                            {
+                                                <span class="badge bg-info">@supplier.Specialization</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary me-1"
+                                                    @onclick="() => EditSupplier(supplier)"
+                                                    title="Редактировать">
+                                                <i class="oi oi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => DeleteSupplier(supplier)"
+                                                    title="Удалить">
+                                                <i class="oi oi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="oi oi-truck display-1 text-muted mb-3"></i>
+                        <h4>Поставщики не найдены</h4>
+                        <p class="text-muted">Нет зарегистрированных поставщиков в системе.</p>
+                        <button class="btn btn-primary" @onclick="ShowAddSupplier">
+                            <i class="oi oi-plus me-2"></i>Добавить первого поставщика
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления/редактирования поставщика -->
+        @if (showSupplierModal)
+        {
+            <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@(editingSupplier?.Id > 0 ? "Редактирование поставщика" : "Добавление поставщика")</h5>
+                            <button type="button" class="btn-close" @onclick="CloseSupplierModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <EditForm Model="supplierModel" OnValidSubmit="SaveSupplier">
+                                <DataAnnotationsValidator />
+
+                                <div class="mb-3">
+                                    <label class="form-label">Название компании *</label>
+                                    <InputText @bind-Value="supplierModel.Name" class="form-control" />
+                                    <ValidationMessage For="@(() => supplierModel.Name)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Контактное лицо</label>
+                                    <InputText @bind-Value="supplierModel.ContactPerson" class="form-control" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Телефон *</label>
+                                    <InputText @bind-Value="supplierModel.Phone" class="form-control" placeholder="+79991112233" />
+                                    <ValidationMessage For="@(() => supplierModel.Phone)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Специализация</label>
+                                    <InputText @bind-Value="supplierModel.Specialization" class="form-control" placeholder="Фотобумага, химикаты, оборудование..." />
+                                </div>
+
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-secondary" @onclick="CloseSupplierModal">Отмена</button>
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        @if (isSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        }
+                                        Сохранить
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private DataService DataService { get; set; } = null!;
+
+    private List<Supplier> suppliers = new();
+    private bool isLoading = true;
+    private bool showSupplierModal = false;
+    private bool isSaving = false;
+    private Supplier? editingSupplier = null;
+    private SupplierModel supplierModel = new();
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && AuthService.IsAdmin)
+        {
+            await LoadSuppliers();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadSuppliers()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            suppliers = await DataService.GetSuppliersAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки поставщиков: {ex.Message}";
+            Console.WriteLine(errorMessage);
+            suppliers = new List<Supplier>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAddSupplier()
+    {
+        editingSupplier = null;
+        supplierModel = new SupplierModel();
+        showSupplierModal = true;
+        StateHasChanged();
+    }
+
+    private void EditSupplier(Supplier supplier)
+    {
+        editingSupplier = supplier;
+        supplierModel = new SupplierModel
+        {
+            Name = supplier.Name,
+            ContactPerson = supplier.ContactPerson ?? "",
+            Phone = supplier.Phone,
+            Specialization = supplier.Specialization ?? ""
+        };
+        showSupplierModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseSupplierModal()
+    {
+        showSupplierModal = false;
+        editingSupplier = null;
+        supplierModel = new SupplierModel();
+        StateHasChanged();
+    }
+
+    private async Task SaveSupplier()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            if (editingSupplier?.Id > 0)
+            {
+                // Редактирование существующего поставщика
+                editingSupplier.Name = supplierModel.Name;
+                editingSupplier.ContactPerson = supplierModel.ContactPerson;
+                editingSupplier.Phone = supplierModel.Phone;
+                editingSupplier.Specialization = supplierModel.Specialization;
+
+                await DataService.UpdateSupplierAsync(editingSupplier);
+                successMessage = "Поставщик успешно обновлен!";
+            }
+            else
+            {
+                // Добавление нового поставщика
+                var newSupplier = new Supplier
+                {
+                    Name = supplierModel.Name,
+                    ContactPerson = supplierModel.ContactPerson,
+                    Phone = supplierModel.Phone,
+                    Specialization = supplierModel.Specialization
+                };
+
+                await DataService.AddSupplierAsync(newSupplier);
+                successMessage = "Поставщик успешно добавлен!";
+            }
+
+            CloseSupplierModal();
+            await LoadSuppliers();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка сохранения поставщика: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteSupplier(Supplier supplier)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Вы уверены, что хотите удалить поставщика \"{supplier.Name}\"? Это действие нельзя отменить."))
+            return;
+
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            await DataService.DeleteSupplierAsync(supplier.Id);
+            successMessage = "Поставщик успешно удален!";
+            await LoadSuppliers();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка удаления поставщика: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+    }
+
+    public class SupplierModel
+    {
+        [Required(ErrorMessage = "Название компании обязательно")]
+        [StringLength(100, ErrorMessage = "Название не должно превышать 100 символов")]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(100, ErrorMessage = "Имя контактного лица не должно превышать 100 символов")]
+        public string ContactPerson { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Телефон обязателен")]
+        [StringLength(15, ErrorMessage = "Телефон не должен превышать 15 символов")]
+        [Phone(ErrorMessage = "Введите корректный номер телефона")]
+        public string Phone { get; set; } = string.Empty;
+
+        [StringLength(255, ErrorMessage = "Специализация не должна превышать 255 символов")]
+        public string Specialization { get; set; } = string.Empty;
+    }
+}

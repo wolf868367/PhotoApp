@@ -1,0 +1,384 @@
+﻿@page "/clients"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Клиенты</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Управление клиентами</h2>
+        <button class="btn btn-success" @onclick="ShowAddClient">
+            <i class="oi oi-plus me-2"></i>Добавить клиента
+        </button>
+    </div>
+
+    @if (!AuthService.IsAuthenticated || !AuthService.IsAdmin)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Недостаточно прав</h4>
+            <p>Для управления клиентами требуется роль администратора.</p>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="oi oi-person me-2"></i>Список клиентов
+                    <span class="badge bg-primary">@clients.Count</span>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                @if (isLoading)
+                {
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <p class="mt-2">Загрузка клиентов...</p>
+                    </div>
+                }
+                else if (clients.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Телефон</th>
+                                    <th>Email</th>
+                                    <th>Статус</th>
+                                    <th>Заказов</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var client in clients)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@client.FullName</strong>
+                                            @if (client.IsPro)
+                                            {
+                                                <span class="badge bg-warning ms-1">PRO</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a href="tel:@client.Phone" class="text-decoration-none">
+                                                <i class="oi oi-phone me-1"></i>@client.Phone
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(client.Email))
+                                            {
+                                                <a href="mailto:@client.Email" class="text-decoration-none">
+                                                    @client.Email
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (client.IsPro)
+                                            {
+                                                <span class="badge bg-success">Профессионал</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Обычный</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">@client.Orders?.Count ?? 0</span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary me-1"
+                                                    @onclick="() => EditClient(client)"
+                                                    title="Редактировать">
+                                                <i class="oi oi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info me-1"
+                                                    @onclick="() => ShowClientOrders(client)"
+                                                    title="Заказы клиента">
+                                                <i class="oi oi-list-rich"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="oi oi-person display-1 text-muted mb-3"></i>
+                        <h4>Клиенты не найдены</h4>
+                        <p class="text-muted">Нет зарегистрированных клиентов.</p>
+                        <button class="btn btn-primary" @onclick="ShowAddClient">
+                            <i class="oi oi-plus me-2"></i>Добавить первого клиента
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления/редактирования клиента -->
+        @if (showClientModal)
+        {
+            <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@(editingClient?.Id > 0 ? "Редактирование клиента" : "Добавление клиента")</h5>
+                            <button type="button" class="btn-close" @onclick="CloseClientModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <EditForm Model="clientModel" OnValidSubmit="SaveClient">
+                                <DataAnnotationsValidator />
+
+                                <div class="mb-3">
+                                    <label class="form-label">ФИО *</label>
+                                    <InputText @bind-Value="clientModel.FullName" class="form-control" />
+                                    <ValidationMessage For="@(() => clientModel.FullName)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Телефон *</label>
+                                    <InputText @bind-Value="clientModel.Phone" class="form-control" placeholder="+79991112233" />
+                                    <ValidationMessage For="@(() => clientModel.Phone)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <InputText @bind-Value="clientModel.Email" class="form-control" type="email" />
+                                    <ValidationMessage For="@(() => clientModel.Email)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <InputCheckbox @bind-Value="clientModel.IsPro" class="form-check-input" id="isPro" />
+                                        <label class="form-check-label" for="isPro">Профессиональный клиент</label>
+                                    </div>
+                                </div>
+
+                                @if (clientModel.IsPro)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">Персональная скидка (%)</label>
+                                        <InputNumber @bind-Value="clientModel.PersonalDiscount" class="form-control" min="0" max="50" step="0.5" />
+                                        <div class="form-text">Размер скидки от 0% до 50%</div>
+                                    </div>
+                                }
+
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-secondary" @onclick="CloseClientModal">Отмена</button>
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        @if (isSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        }
+                                        Сохранить
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject] private AuthService AuthService { get; set; } = null!;
+    [Inject] private DataService DataService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private List<Client> clients = new();
+    private bool isLoading = true;
+    private bool showClientModal = false;
+    private bool isSaving = false;
+    private Client? editingClient = null;
+    private ClientModel clientModel = new();
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && AuthService.IsAdmin)
+        {
+            await LoadClients();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadClients()
+    {
+        isLoading = true;
+        try
+        {
+            clients = await DataService.GetClientsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки клиентов: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAddClient()
+    {
+        editingClient = null;
+        clientModel = new ClientModel();
+        showClientModal = true;
+    }
+
+    private void EditClient(Client client)
+    {
+        editingClient = client;
+        clientModel = new ClientModel
+        {
+            FullName = client.FullName,
+            Phone = client.Phone,
+            Email = client.Email ?? "",
+            IsPro = client.IsPro,
+            PersonalDiscount = client.PersonalDiscount
+        };
+        showClientModal = true;
+    }
+
+    private void CloseClientModal()
+    {
+        showClientModal = false;
+        editingClient = null;
+        clientModel = new ClientModel();
+    }
+
+    private async Task SaveClient()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            if (editingClient?.Id > 0)
+            {
+                // Редактирование
+                editingClient.FullName = clientModel.FullName;
+                editingClient.Phone = clientModel.Phone;
+                editingClient.Email = clientModel.Email;
+                editingClient.IsPro = clientModel.IsPro;
+                editingClient.PersonalDiscount = clientModel.IsPro ? clientModel.PersonalDiscount : 0;
+
+                await DataService.UpdateClientAsync(editingClient);
+                successMessage = "Клиент успешно обновлен!";
+            }
+            else
+            {
+                // Добавление
+                var newClient = new Client
+                {
+                    FullName = clientModel.FullName,
+                    Phone = clientModel.Phone,
+                    Email = clientModel.Email,
+                    IsPro = clientModel.IsPro,
+                    PersonalDiscount = clientModel.IsPro ? clientModel.PersonalDiscount : 0,
+                    UserId = await GetOrCreateUserForClient() // Создаем пользователя для клиента
+                };
+
+                await DataService.AddClientAsync(newClient);
+                successMessage = "Клиент успешно добавлен!";
+            }
+
+            CloseClientModal();
+            await LoadClients();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка сохранения: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<int> GetOrCreateUserForClient()
+    {
+        // Ищем существующего пользователя с таким логином (телефоном)
+        var existingUser = await DataService.GetUserByLoginAsync(clientModel.Phone, clientModel.Phone);
+        if (existingUser != null)
+        {
+            return existingUser.Id;
+        }
+
+        // Создаем нового пользователя
+        var clientRole = (await DataService.GetRolesAsync()).FirstOrDefault(r => r.Name == "client");
+        if (clientRole == null)
+        {
+            throw new Exception("Роль 'client' не найдена в системе");
+        }
+
+        var newUser = new ApplicationUser
+        {
+            Login = clientModel.Phone,
+            Password = clientModel.Phone, // Пароль = телефон по умолчанию
+            RoleId = clientRole.Id
+        };
+
+        await DataService.AddUserAsync(newUser);
+
+        // Получаем ID созданного пользователя
+        var user = await DataService.GetUserByLoginAsync(clientModel.Phone, clientModel.Phone);
+        return user?.Id ?? 0;
+    }
+
+    private void ShowClientOrders(Client client)
+    {
+        Navigation.NavigateTo($"/orders?clientId={client.Id}");
+    }
+
+    public class ClientModel
+    {
+        [Required(ErrorMessage = "ФИО обязательно")]
+        [StringLength(100, ErrorMessage = "ФИО не должно превышать 100 символов")]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Телефон обязателен")]
+        [Phone(ErrorMessage = "Введите корректный номер телефона")]
+        [StringLength(15, ErrorMessage = "Телефон не должен превышать 15 символов")]
+        public string Phone { get; set; } = string.Empty;
+
+        [EmailAddress(ErrorMessage = "Введите корректный email")]
+        [StringLength(100, ErrorMessage = "Email не должен превышать 100 символов")]
+        public string Email { get; set; } = string.Empty;
+
+        public bool IsPro { get; set; } = false;
+
+        [Range(0, 50, ErrorMessage = "Скидка должна быть от 0% до 50%")]
+        public decimal PersonalDiscount { get; set; } = 0;
+    }
+}

@@ -1,5 +1,336 @@
-﻿<h3>Create</h3>
+﻿@page "/supply/create"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Новая поставка</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/supply" />
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="oi oi-plus me-2"></i>Создание новой поставки
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="supplyModel" OnValidSubmit="CreateSupplyOrder">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <!-- Информация о поставке -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">Информация о поставке</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Поставщик *</label>
+                                    <InputSelect @bind-Value="supplyModel.SupplierId" class="form-select">
+                                        <option value="0">Выберите поставщика</option>
+                                        @foreach (var supplier in suppliers)
+                                        {
+                                            <option value="@supplier.Id">@supplier.Name</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => supplyModel.SupplierId)" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Ответственный сотрудник *</label>
+                                    <InputSelect @bind-Value="supplyModel.EmployeeId" class="form-select">
+                                        <option value="0">Выберите сотрудника</option>
+                                        @foreach (var employee in employees)
+                                        {
+                                            <option value="@employee.Id">@employee.FullName</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => supplyModel.EmployeeId)" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Товары в поставке -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">Товары в поставке</h5>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Добавить товар</label>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <select @bind="selectedProductId" class="form-select">
+                                                <option value="0">Выберите товар</option>
+                                                @foreach (var product in availableProducts)
+                                                {
+                                                    <option value="@product.Id">@product.Name - @product.SellingPrice.ToString("C")</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Количество товара</label>
+                                            <input type="number" @bind="supplyItemQuantity" class="form-control" placeholder="Кол-во" min="1" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Закупочная цена</label>
+                                            <input type="number" @bind="supplyItemPrice" class="form-control" placeholder="Цена закупки" step="0.01" min="0.01" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button type="button" class="btn btn-success w-100" @onclick="AddSupplyItem"
+                                                    disabled="@(selectedProductId == 0 || supplyItemQuantity <= 0 || supplyItemPrice <= 0)">
+                                                <i class="oi oi-plus me-2"></i>Добавить
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Список добавленных товаров -->
+                                @if (supplyItems.Any())
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Товар</th>
+                                                    <th>Кол-во</th>
+                                                    <th>Цена закупки</th>
+                                                    <th>Сумма</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var item in supplyItems)
+                                                {
+                                                    <tr>
+                                                        <td>@item.Product?.Name</td>
+                                                        <td>@item.Quantity</td>
+                                                        <td>@item.Amount?.ToString("C")</td>
+                                                        <td><strong>@((item.Quantity * (item.Amount ?? 0)).ToString("C"))</strong></td>
+                                                        <td>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                                    @onclick="() => RemoveSupplyItem(item)">
+                                                                <i class="oi oi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="table-primary">
+                                                    <td colspan="3" class="text-end"><strong>Итого:</strong></td>
+                                                    <td><strong>@totalSupplyAmount.ToString("C")</strong></td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Дополнительная информация -->
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Примечание</label>
+                                    <InputTextArea @bind-Value="supplyModel.Notes" class="form-control" rows="3"
+                                                   placeholder="Дополнительная информация о поставке..." />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Сводка поставки</h6>
+
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Товаров:</span>
+                                            <span>@supplyItems.Count шт.</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Общее количество:</span>
+                                            <span>@supplyItems.Sum(i => i.Quantity) шт.</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Общая сумма:</span>
+                                            <span>@totalSupplyAmount.ToString("C")</span>
+                                        </div>
+
+                                        <hr />
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Статус поставки</label>
+                                            <select @bind="supplyModel.Status" class="form-select">
+                                                <option value="формируется">Формируется</option>
+                                                <option value="отправлена">Отправлена</option>
+                                                <option value="получена">Получена</option>
+                                            </select>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary w-100" disabled="@(!CanCreateSupplyOrder)">
+                                            <i class="oi oi-check me-2"></i>Создать поставку
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 @code {
+    [Inject]
+    private AuthService AuthService { get; set; } = null!;
 
+    [Inject]
+    private DataService DataService { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    private SupplyOrderModel supplyModel = new();
+    private List<Supplier> suppliers = new();
+    private List<Employee> employees = new();
+    private List<Product> availableProducts = new();
+    private List<SupplyItemModel> supplyItems = new();
+
+    // Для добавления товаров
+    private int selectedProductId = 0;
+    private int supplyItemQuantity = 1;
+    private decimal supplyItemPrice = 0;
+
+    // Вычисляемые свойства
+    private decimal totalSupplyAmount => supplyItems.Sum(i => i.Quantity * (i.Amount ?? 0));
+    private bool CanCreateSupplyOrder => supplyModel.SupplierId > 0 && supplyModel.EmployeeId > 0 && supplyItems.Any();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsAuthenticated || !AuthService.IsAdmin)
+        {
+            Navigation.NavigateTo("/supply");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            suppliers = await DataService.GetSuppliersAsync();
+            employees = await DataService.GetEmployeesAsync();
+            availableProducts = await DataService.GetProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки данных: {ex.Message}");
+        }
+    }
+
+    private void AddSupplyItem()
+    {
+        var product = availableProducts.FirstOrDefault(p => p.Id == selectedProductId);
+        if (product == null) return;
+
+        var supplyItem = new SupplyItemModel
+        {
+            Product = product,
+            ProductId = product.Id,
+            Quantity = supplyItemQuantity,
+            Amount = supplyItemPrice
+        };
+
+        supplyItems.Add(supplyItem);
+
+        // Сброс формы
+        selectedProductId = 0;
+        supplyItemQuantity = 1;
+        supplyItemPrice = 1;
+        StateHasChanged();
+    }
+
+    private void RemoveSupplyItem(SupplyItemModel item)
+    {
+        supplyItems.Remove(item);
+        StateHasChanged();
+    }
+
+    private async Task CreateSupplyOrder()
+    {
+        if (!CanCreateSupplyOrder) return;
+
+        try
+        {
+            // Создаем объект поставки
+            var newSupplyOrder = new SupplyOrder
+            {
+                SupplierId = supplyModel.SupplierId,
+                EmployeeId = supplyModel.EmployeeId,
+                Status = supplyModel.Status,
+                TotalAmount = totalSupplyAmount,
+                CreatedAt = DateTime.Now
+            };
+
+            // Сохраняем поставку в базу
+            await DataService.AddSupplyOrderAsync(newSupplyOrder);
+
+            // Добавляем товары поставки
+            foreach (var item in supplyItems)
+            {
+                var supplyOrderItem = new SupplyOrderItem
+                {
+                    SupplyOrderId = newSupplyOrder.Id,
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity,
+                    Amount = item.Amount
+                };
+                await DataService.AddSupplyOrderItemAsync(supplyOrderItem);
+            }
+
+            // Если поставка получена, обновляем остатки товаров
+            if (supplyModel.Status == "получена")
+            {
+                foreach (var item in supplyItems)
+                {
+                    await DataService.UpdateProductStockAsync(item.ProductId, item.Quantity);
+                }
+            }
+
+            Console.WriteLine($"Поставка успешно создана! ID: {newSupplyOrder.Id}");
+            Navigation.NavigateTo("/supply");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка создания поставки: {ex.Message}");
+        }
+    }
+
+    // Модели для формы (только для UI)
+    public class SupplyOrderModel
+    {
+        [Required(ErrorMessage = "Поставщик обязателен")]
+        [Range(1, int.MaxValue, ErrorMessage = "Выберите поставщика")]
+        public int SupplierId { get; set; }
+
+        [Required(ErrorMessage = "Сотрудник обязателен")]
+        [Range(1, int.MaxValue, ErrorMessage = "Выберите сотрудника")]
+        public int EmployeeId { get; set; }
+
+        public string Status { get; set; } = "формируется";
+        public string Notes { get; set; } = string.Empty;
+    }
+
+    public class SupplyItemModel
+    {
+        public Product Product { get; set; } = null!;
+        public int ProductId { get; set; }
+        public int Quantity { get; set; }
+        public decimal? Amount { get; set; }
+    }
 }

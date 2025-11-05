@@ -1,5 +1,196 @@
-﻿<h3>Index</h3>
+﻿@page "/reports"
+@using PhotoApp.Models
+
+<PageTitle>PhotoApp - Отчеты</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Аналитика и отчеты</h2>
+        <button class="btn btn-success" @onclick="GenerateReport">
+            <i class="oi oi-document me-2"></i>Сформировать отчет
+        </button>
+    </div>
+
+    @if (!AuthService.IsAuthenticated || !AuthService.IsAdmin)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Недостаточно прав</h4>
+            <p>Для просмотра отчетов требуется роль администратора.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Период с</label>
+                        <input type="date" @bind="startDate" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Период по</label>
+                        <input type="date" @bind="endDate" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Тип отчета</label>
+                        <select @bind="reportType" class="form-select">
+                            <option value="sales">Продажи</option>
+                            <option value="services">Услуги</option>
+                            <option value="products">Товары</option>
+                            <option value="financial">Финансовый</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body text-center">
+                        <h4>@totalRevenue.ToString("C")</h4>
+                        <p class="mb-0">Общая выручка</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body text-center">
+                        <h4>@totalOrders</h4>
+                        <p class="mb-0">Всего заказов</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning">
+                    <div class="card-body text-center">
+                        <h4>@completedOrders</h4>
+                        <p class="mb-0">Завершено</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body text-center">
+                        <h4>@popularService</h4>
+                        <p class="mb-0">Популярная услуга</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Графики и таблицы -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Продажи по дням</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center p-4 bg-light rounded">
+                            <i class="oi oi-graph display-1 text-muted"></i>
+                            <p class="mt-2 text-muted">Здесь будет график продаж</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Топ товары</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center p-4 bg-light rounded">
+                            <i class="oi oi-chart display-1 text-muted"></i>
+                            <p class="mt-2 text-muted">Здесь будет рейтинг товаров</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Детальная статистика -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Детальная статистика</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Показатель</th>
+                                <th>Значение</th>
+                                <th>Изменение</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Средний чек</td>
+                                <td>@(totalOrders > 0 ? (totalRevenue / totalOrders).ToString("C") : "—")</td>
+                                <td><span class="text-success">+5%</span></td>
+                            </tr>
+                            <tr>
+                                <td>Конверсия</td>
+                                <td>85%</td>
+                                <td><span class="text-success">+2%</span></td>
+                            </tr>
+                            <tr>
+                                <td>Оборот товаров</td>
+                                <td>@(totalRevenue * 0.6m).ToString("C")</td>
+                                <td><span class="text-warning">+0%</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
 
 @code {
+    [Inject] private AuthService AuthService { get; set; } = null!;
+    [Inject] private DataService DataService { get; set; } = null!;
 
+    private DateTime startDate = DateTime.Today.AddDays(-30);
+    private DateTime endDate = DateTime.Today;
+    private string reportType = "sales";
+    private decimal totalRevenue = 125000m;
+    private int totalOrders = 156;
+    private int completedOrders = 142;
+    private string popularService = "Печать 10x15";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && AuthService.IsAdmin)
+        {
+            await LoadReportData();
+        }
+    }
+
+    private async Task LoadReportData()
+    {
+        try
+        {
+            // Здесь будет загрузка реальных данных для отчетов
+            // var report = await DataService.GetSalesReportAsync(startDate, endDate);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки отчетов: {ex.Message}");
+        }
+    }
+
+    private async Task GenerateReport()
+    {
+        // Здесь будет логика генерации и экспорта отчета
+        Console.WriteLine($"Генерация отчета: {reportType} за период {startDate:dd.MM.yyyy} - {endDate:dd.MM.yyyy}");
+
+        // Имитация загрузки данных
+        await LoadReportData();
+    }
 }

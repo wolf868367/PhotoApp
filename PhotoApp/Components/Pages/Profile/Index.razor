@@ -1,5 +1,249 @@
-﻿<h3>Index</h3>
+﻿@page "/profile"
+@using PhotoApp.Models
+
+<PageTitle>PhotoApp - Профиль</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            @if (!AuthService.IsAuthenticated)
+            {
+                <div class="alert alert-warning text-center">
+                    <h4>Требуется авторизация</h4>
+                    <p>Для просмотра профиля необходимо войти в систему.</p>
+                    <a href="/login" class="btn btn-primary">Войти</a>
+                </div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title mb-0">
+                            <i class="oi oi-person me-2"></i>Личный кабинет
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- Информация о пользователе -->
+                        <div class="row mb-4">
+                            <div class="col-md-4 text-center">
+                                <div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                                     style="width: 100px; height: 100px;">
+                                    <i class="oi oi-person text-white" style="font-size: 2rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <h3>@AuthService.CurrentUser?.Login</h3>
+                                <p class="text-muted">
+                                    <span class="badge @GetRoleBadgeClass()">@GetRoleName()</span>
+                                </p>
+                                <p class="mb-0">@GetRoleDescription()</p>
+                            </div>
+                        </div>
+
+                        <!-- Детальная информация -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Основная информация</h5>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Логин:</strong></td>
+                                        <td>@AuthService.CurrentUser?.Login</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Роль:</strong></td>
+                                        <td>@GetRoleName()</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>ID пользователя:</strong></td>
+                                        <td>@AuthService.CurrentUser?.Id</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Для клиентов показываем дополнительную информацию -->
+                            @if (AuthService.IsClient && currentClient != null)
+                            {
+                                <div class="col-md-6">
+                                    <h5>Информация о клиенте</h5>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td><strong>ФИО:</strong></td>
+                                            <td>@currentClient.FullName</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Телефон:</strong></td>
+                                            <td>@currentClient.Phone</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Статус:</strong></td>
+                                            <td>
+                                                @if (currentClient.IsPro)
+                                                {
+                                                    <span class="badge bg-warning">Профессионал</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-info">Любитель</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                        @if (currentClient.IsPro)
+                                        {
+                                            <tr>
+                                                <td><strong>Персональная скидка:</strong></td>
+                                                <td>@currentClient.PersonalDiscount%</td>
+                                            </tr>
+                                        }
+                                    </table>
+                                </div>
+                            }
+
+                            <!-- Для операторов показываем рабочую информацию -->
+                            @if (AuthService.IsOperator && currentEmployee != null)
+                            {
+                                <div class="col-md-6">
+                                    <h5>Рабочая информация</h5>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td><strong>ФИО:</strong></td>
+                                            <td>@currentEmployee.FullName</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Телефон:</strong></td>
+                                            <td>@currentEmployee.Phone</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Филиал:</strong></td>
+                                            <td>@currentEmployee.Branch?.Name</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Статистика для клиентов -->
+                        @if (AuthService.IsClient)
+                        {
+                            <div class="mt-4 p-3 bg-light rounded">
+                                <h5>Моя статистика</h5>
+                                <div class="row text-center">
+                                    <div class="col-md-4">
+                                        <h4 class="text-primary">@clientOrdersCount</h4>
+                                        <p class="mb-0">Всего заказов</p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h4 class="text-success">@clientTotalSpent.ToString("C")</h4>
+                                        <p class="mb-0">Общие расходы</p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h4 class="text-info">@clientSavedAmount.ToString("C")</h4>
+                                        <p class="mb-0">Сэкономлено</p>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Быстрые действия -->
+                        <div class="mt-4">
+                            <h5>Быстрые действия</h5>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @if (AuthService.IsClient)
+                                {
+                                    <a href="/orders" class="btn btn-outline-primary">
+                                        <i class="oi oi-list-rich me-2"></i>Мои заказы
+                                    </a>
+                                }          
+                                <button class="btn btn-outline-danger" @onclick="Logout">
+                                    <i class="oi oi-account-logout me-2"></i>Выйти
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
 
 @code {
+    [Inject] private AuthService AuthService { get; set; } = null!;
+    [Inject] private DataService DataService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
 
+    private Client? currentClient = null;
+    private Employee? currentEmployee = null;
+    private int clientOrdersCount = 5;
+    private decimal clientTotalSpent = 1250.50m;
+    private decimal clientSavedAmount = 125.05m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated)
+        {
+            await LoadUserData();
+        }
+    }
+
+    private async Task LoadUserData()
+    {
+        try
+        {
+            if (AuthService.IsClient)
+            {
+                // Загружаем данные клиента
+                var clients = await DataService.GetClientsAsync();
+                currentClient = clients.FirstOrDefault(c => c.UserId == AuthService.CurrentUser?.Id);
+            }
+            else if (AuthService.IsOperator)
+            {
+                // Загружаем данные сотрудника
+                // Здесь нужно добавить метод GetEmployeesAsync в DataService
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки данных пользователя: {ex.Message}");
+        }
+    }
+
+    private string GetRoleName()
+    {
+        return AuthService.CurrentUser?.Role?.Name switch
+        {
+            "admin" => "Администратор",
+            "operator" => "Оператор",
+            "client" => "Клиент",
+            _ => "Пользователь"
+        };
+    }
+
+    private string GetRoleDescription()
+    {
+        return AuthService.CurrentUser?.Role?.Name switch
+        {
+            "admin" => "Полный доступ ко всем функциям системы",
+            "operator" => "Управление заказами, продажами и услугами",
+            "client" => "Просмотр заказов и личного кабинета",
+            _ => "Базовый доступ к системе"
+        };
+    }
+
+    private string GetRoleBadgeClass()
+    {
+        return AuthService.CurrentUser?.Role?.Name switch
+        {
+            "admin" => "bg-danger",
+            "operator" => "bg-warning",
+            "client" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void Logout()
+    {
+        AuthService.Logout();
+        Navigation.NavigateTo("/login");
+    }
 }

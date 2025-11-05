@@ -1,5 +1,10 @@
 ﻿@page "/orders"
 @using PhotoApp.Models
+@using Microsoft.AspNetCore.Components
+@inject AuthService AuthService
+@inject DataService DataService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>PhotoApp - Заказы</PageTitle>
 
@@ -7,10 +12,21 @@
     <BackButton FallbackUrl="/" />
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Список заказов</h2>
-        <a href="/orders/create" class="btn btn-success">
-            <i class="oi oi-plus me-2"></i>Создать заказ
-        </a>
+        @if (AuthService.IsClient)
+        {
+            <h2>Мои заказы</h2>
+        }
+        else
+        {
+            <h2>Список заказов</h2>
+        }
+
+        @if (AuthService.IsAuthenticated && (AuthService.IsOperator || AuthService.IsAdmin || AuthService.IsClient))
+        {
+            <a href="/orders/create" class="btn btn-success">
+                <i class="oi oi-plus me-2"></i>Создать заказ
+            </a>
+        }
     </div>
 
     @if (!AuthService.IsAuthenticated)
@@ -21,15 +37,22 @@
             <a href="/login" class="btn btn-primary">Войти</a>
         </div>
     }
-    else if (!AuthService.IsOperator && !AuthService.IsAdmin)
-    {
-        <div class="alert alert-warning text-center">
-            <h4>Недостаточно прав</h4>
-            <p>Для просмотра заказов требуется роль оператора или администратора.</p>
-        </div>
-    }
     else
     {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                @errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">
+                @successMessage
+            </div>
+        }
+
         <!-- Фильтры -->
         <div class="card mb-4">
             <div class="card-body">
@@ -42,6 +65,7 @@
                             <option value="в работе">В работе</option>
                             <option value="готов">Готов</option>
                             <option value="выдан">Выдан</option>
+                            <option value="отменен">Отменен</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -76,7 +100,15 @@
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="oi oi-list-rich me-2"></i>Заказы (@orders.Count)
+                        <i class="oi oi-list-rich me-2"></i>
+                        @if (AuthService.IsClient)
+                        {
+                            <text>Мои заказы (@orders.Count)</text>
+                        }
+                        else
+                        {
+                            <text>Заказы (@orders.Count)</text>
+                        }
                     </h5>
                 </div>
                 <div class="card-body p-0">
@@ -85,8 +117,10 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>ID</th>
-                                    <th>Клиент</th>
-                                    <th>Киоск</th>
+                                    @if (!AuthService.IsClient)
+                                    {
+                                        <th>Клиент</th>
+                                    }
                                     <th>Дата</th>
                                     <th>Статус</th>
                                     <th>Сумма</th>
@@ -95,25 +129,27 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var order in orders)
+                                @foreach (var orderItem in orders)
                                 {
                                     <tr>
                                         <td>
-                                            <strong>#@order.Id</strong>
+                                            <strong>#@orderItem.Id</strong>
                                         </td>
-                                        <td>@order.Client?.FullName</td>
-                                        <td>@order.Kiosk?.Address</td>
-                                        <td>@order.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                        @if (!AuthService.IsClient)
+                                        {
+                                            <td>@orderItem.Client?.FullName</td>
+                                        }
+                                        <td>@orderItem.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
                                         <td>
-                                            <span class="badge @GetStatusBadgeClass(order.Status)">
-                                                @order.Status
+                                            <span class="badge @GetStatusBadgeClass(orderItem.Status)">
+                                                @orderItem.Status
                                             </span>
                                         </td>
                                         <td>
-                                            <strong>@order.TotalAmount.ToString("C")</strong>
+                                            <strong>@orderItem.TotalAmount.ToString("C")</strong>
                                         </td>
                                         <td>
-                                            @if (order.IsPaid)
+                                            @if (orderItem.IsPaid)
                                             {
                                                 <span class="badge bg-success">Оплачен</span>
                                             }
@@ -123,16 +159,36 @@
                                             }
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-primary me-1" 
-                                                    @onclick="() => ShowOrderDetails(order)"
-                                                    title="Подробнее">
-                                                <i class="oi oi-eye"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary me-1"
-                                                    @onclick="() => ChangeOrderStatus(order)"
-                                                    title="Изменить статус">
-                                                <i class="oi oi-pencil"></i>
-                                            </button>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        @onclick="() => ShowOrderDetails(orderItem)"
+                                                        title="Подробнее">
+                                                    <i class="oi oi-eye"></i>
+                                                </button>
+
+                                                @if (AuthService.IsOperator || AuthService.IsAdmin)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary"
+                                                            @onclick="() => ChangeOrderStatus(orderItem)"
+                                                            title="Изменить статус">
+                                                        <i class="oi oi-arrow-thick-right"></i>
+                                                    </button>
+                                                }
+
+                                                @if (AuthService.IsAdmin)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-info"
+                                                            @onclick="() => EditOrder(orderItem)"
+                                                            title="Редактировать">
+                                                        <i class="oi oi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                            @onclick="() => DeleteOrder(orderItem)"
+                                                            title="Удалить заказ">
+                                                        <i class="oi oi-trash"></i>
+                                                    </button>
+                                                }
+                                            </div>
                                         </td>
                                     </tr>
                                 }
@@ -146,9 +202,17 @@
         {
             <div class="text-center py-5">
                 <i class="oi oi-list-rich display-1 text-muted mb-3"></i>
-                <h4>Заказы не найдены</h4>
-                <p class="text-muted">Нет заказов, соответствующих выбранным фильтрам.</p>
-                <a href="/orders/create" class="btn btn-primary">Создать первый заказ</a>
+                @if (AuthService.IsClient)
+                {
+                    <h4>У вас пока нет заказов</h4>
+                    <p class="text-muted">Создайте свой первый заказ!</p>
+                }
+                else
+                {
+                    <h4>Заказы не найдены</h4>
+                    <p class="text-muted">Нет заказов, соответствующих выбранным фильтрам.</p>
+                }
+                <a href="/orders/create" class="btn btn-primary">Создать заказ</a>
             </div>
         }
 
@@ -176,12 +240,6 @@
 </div>
 
 @code {
-    [Inject]
-    private AuthService AuthService { get; set; } = null!;
-
-    [Inject]
-    private DataService DataService { get; set; } = null!;
-
     private List<Order> orders = new();
     private bool isLoading = false;
     private string selectedStatus = "";
@@ -189,10 +247,12 @@
     private DateTime? endDate;
     private bool showDetails = false;
     private Order? selectedOrder = null;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthService.IsAuthenticated && (AuthService.IsOperator || AuthService.IsAdmin))
+        if (AuthService.IsAuthenticated)
         {
             await LoadOrders();
         }
@@ -201,35 +261,45 @@
     private async Task LoadOrders()
     {
         isLoading = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
         StateHasChanged();
 
         try
         {
-            // Временно заглушка - создаем тестовые данные
-            orders = await GetTestOrders();
-            
-            // Позже раскомментируй:
-            // orders = await DataService.GetOrdersAsync();
-            
+            var allOrders = await DataService.GetOrdersAsync();
+
+            // Для клиентов показываем только их заказы
+            if (AuthService.IsClient && AuthService.CurrentClient != null)
+            {
+                allOrders = allOrders.Where(o => o.ClientId == AuthService.CurrentClient.Id).ToList();
+            }
+
             // Применяем фильтры
+            var filteredOrders = allOrders.AsEnumerable();
+
             if (!string.IsNullOrEmpty(selectedStatus))
             {
-                orders = orders.Where(o => o.Status == selectedStatus).ToList();
+                filteredOrders = filteredOrders.Where(o => o.Status == selectedStatus);
             }
-            
+
             if (startDate.HasValue)
             {
-                orders = orders.Where(o => o.CreatedAt >= startDate.Value).ToList();
+                filteredOrders = filteredOrders.Where(o => o.CreatedAt.Date >= startDate.Value.Date);
             }
-            
+
             if (endDate.HasValue)
             {
-                orders = orders.Where(o => o.CreatedAt <= endDate.Value.AddDays(1)).ToList();
+                filteredOrders = filteredOrders.Where(o => o.CreatedAt.Date <= endDate.Value.Date);
             }
+
+            orders = filteredOrders.ToList();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка загрузки заказов: {ex.Message}");
+            errorMessage = $"Ошибка загрузки заказов: {ex.Message}";
+            Console.WriteLine(errorMessage);
+            orders = new List<Order>();
         }
         finally
         {
@@ -254,8 +324,59 @@
 
     private async Task ChangeOrderStatus(Order order)
     {
-        // Здесь будет логика изменения статуса
-        Console.WriteLine($"Изменение статуса заказа {order.Id}");
+        try
+        {
+            // Определяем следующий статус
+            var nextStatus = order.Status switch
+            {
+                "принят" => "в работе",
+                "в работе" => "готов",
+                "готов" => "выдан",
+                "выдан" => "выдан", // конечный статус
+                _ => "принят"
+            };
+
+            if (nextStatus != order.Status)
+            {
+                // Временно просто обновляем локально, пока нет метода в DataService
+                order.Status = nextStatus;
+                successMessage = $"Статус заказа #{order.Id} изменен на '{nextStatus}'";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка изменения статуса: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+    }
+
+    private void EditOrder(Order order)
+    {
+        Navigation.NavigateTo($"/orders/edit/{order.Id}");
+    }
+
+    private async Task DeleteOrder(Order order)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Вы уверены, что хотите удалить заказ #{order.Id}? Это действие нельзя отменить."))
+            return;
+
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Временно просто удаляем из локального списка
+            orders.Remove(order);
+            successMessage = $"Заказ #{order.Id} успешно удален!";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка удаления заказа: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
     }
 
     private string GetStatusBadgeClass(string status)
@@ -266,45 +387,8 @@
             "в работе" => "bg-warning",
             "готов" => "bg-success",
             "выдан" => "bg-info",
+            "отменен" => "bg-danger",
             _ => "bg-secondary"
-        };
-    }
-
-    // Временный метод для тестовых данных
-    private async Task<List<Order>> GetTestOrders()
-    {
-        return new List<Order>
-        {
-            new Order 
-            { 
-                Id = 1, 
-                CreatedAt = DateTime.Now.AddDays(-2),
-                Status = "готов",
-                TotalAmount = 315.00m,
-                IsPaid = true,
-                Client = new Client { FullName = "Иванов Алексей Петрович" },
-                Kiosk = new Kiosk { Address = "ТЦ 'Молл', 1 этаж" }
-            },
-            new Order 
-            { 
-                Id = 2, 
-                CreatedAt = DateTime.Now.AddDays(-1),
-                Status = "в работе", 
-                TotalAmount = 540.00m,
-                IsPaid = false,
-                Client = new Client { FullName = "Петрова Мария Сергеевна" },
-                Kiosk = new Kiosk { Address = "ТЦ 'Галерея', 2 этаж" }
-            },
-            new Order 
-            { 
-                Id = 3, 
-                CreatedAt = DateTime.Now,
-                Status = "принят",
-                TotalAmount = 875.00m,
-                IsPaid = false,
-                Client = new Client { FullName = "Сидоров Дмитрий Владимирович" },
-                Kiosk = new Kiosk { Address = "ТРК 'Северный'" }
-            }
         };
     }
 }

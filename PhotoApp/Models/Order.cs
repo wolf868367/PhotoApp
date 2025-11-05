@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PhotoApp.Models
 {
+    [Table("orders")]
     public class Order
     {
         [Key]
@@ -31,6 +32,8 @@ namespace PhotoApp.Models
         public decimal TotalAmount { get; set; }
 
         public bool IsPaid { get; set; } = false;
+
+        public string? Notes { get; set; } = null;
 
         public ICollection<OrderService> OrderServices { get; set; } = new List<OrderService>();
         public ICollection<Sale> Sales { get; set; } = new List<Sale>();

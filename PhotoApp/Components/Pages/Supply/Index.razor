@@ -1,5 +1,176 @@
-﻿<h3>Index</h3>
+﻿@page "/supply"
+@using PhotoApp.Models
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>PhotoApp - Поставки</PageTitle>
+
+<div class="container mt-4">
+    <BackButton FallbackUrl="/" />
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Управление поставками</h2>
+        <a href="/supply/create" class="btn btn-success">
+            <i class="oi oi-plus me-2"></i>Новая поставка
+        </a>
+    </div>
+
+    @if (!AuthService.IsAuthenticated || !AuthService.IsAdmin)
+    {
+        <div class="alert alert-warning text-center">
+            <h4>Недостаточно прав</h4>
+            <p>Для управления поставками требуется роль администратора.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Статистика поставок -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body text-center">
+                        <h4>@supplyOrders.Count</h4>
+                        <p class="mb-0">Всего поставок</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body text-center">
+                        <h4>@supplyOrders.Count(o => o.Status == "получена")</h4>
+                        <p class="mb-0">Получено</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning">
+                    <div class="card-body text-center">
+                        <h4>@supplyOrders.Count(o => o.Status == "отправлена")</h4>
+                        <p class="mb-0">В пути</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body text-center">
+                        <h4>@supplyOrders.Count(o => o.Status == "формируется")</h4>
+                        <p class="mb-0">Формируется</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Список поставок -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="oi oi-truck me-2"></i>История поставок
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                @if (supplyOrders?.Any() == true)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Поставщик</th>
+                                    <th>Сотрудник</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                    <th>Сумма</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var order in supplyOrders)
+                                {
+                                    <tr>
+                                        <td><strong>#@order.Id</strong></td>
+                                        <td>@order.Supplier?.Name</td>
+                                        <td>@order.Employee?.FullName</td>
+                                        <td>@order.CreatedAt.ToString("dd.MM.yyyy")</td>
+                                        <td>
+                                            <span class="badge @GetSupplyStatusBadge(order.Status)">
+                                                @order.Status
+                                            </span>
+                                        </td>
+                                        <td>@(order.TotalAmount?.ToString("C") ?? "—")</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    @onclick="() => ShowSupplyDetails(order)"
+                                                    title="Детали">
+                                                <i class="oi oi-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="oi oi-truck display-1 text-muted mb-3"></i>
+                        <h4>Поставки не найдены</h4>
+                        <p class="text-muted">Нет данных о поставках.</p>
+                        <button class="btn btn-primary" @onclick="ShowAddSupply">
+                            <i class="oi oi-plus me-2"></i>Создать первую поставку
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
 
 @code {
+    [Inject] private AuthService AuthService { get; set; } = null!;
+    [Inject] private DataService DataService { get; set; } = null!;
 
+    private List<SupplyOrder> supplyOrders = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated && AuthService.IsAdmin)
+        {
+            await LoadSupplyOrders();
+        }
+    }
+
+    private async Task LoadSupplyOrders()
+    {
+        try
+        {
+            supplyOrders = await DataService.GetSupplyOrdersAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки поставок: {ex.Message}");
+        }
+    }
+
+    private void ShowAddSupply()
+    {
+        // Здесь будет логика создания новой поставки
+        Console.WriteLine("Создание новой поставки");
+    }
+
+    private void ShowSupplyDetails(SupplyOrder order)
+    {
+        // Здесь будет логика показа деталей поставки
+        Console.WriteLine($"Детали поставки #{order.Id}");
+    }
+
+    private string GetSupplyStatusBadge(string status)
+    {
+        return status switch
+        {
+            "формируется" => "bg-info",
+            "отправлена" => "bg-warning",
+            "получена" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
 }

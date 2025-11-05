@@ -5,9 +5,8 @@
 <PageTitle>PhotoApp - Создание заказа</PageTitle>
 
 <div class="container mt-4">
-    <!-- Кнопка Назад -->
     <BackButton FallbackUrl="/orders" />
-    
+
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -22,33 +21,61 @@
                         <ValidationSummary />
 
                         <!-- Информация о клиенте -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="border-bottom pb-2">Информация о клиенте</h5>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Поиск клиента по телефону</label>
-                                    <div class="input-group">
-                                        <InputText @bind-Value="searchPhone" class="form-control" placeholder="+79991112233" />
-                                        <button type="button" class="btn btn-outline-secondary" @onclick="SearchClient">
-                                            <i class="oi oi-magnifying-glass"></i>
+                        @if (!AuthService.IsClient)
+                        {
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="border-bottom pb-2">Информация о клиенте</h5>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Поиск клиента по телефону</label>
+                                        <div class="input-group">
+                                            <InputText @bind-Value="searchPhone" class="form-control" placeholder="+79991112233" />
+                                            <button type="button" class="btn btn-outline-secondary" @onclick="SearchClient">
+                                                <i class="oi oi-magnifying-glass"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Или новый клиент</label>
+                                        <button type="button" class="btn btn-outline-primary w-100" @onclick="ShowNewClientForm">
+                                            <i class="oi oi-person me-2"></i>Добавить нового клиента
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Или новый клиент</label>
-                                    <button type="button" class="btn btn-outline-primary w-100" @onclick="ShowNewClientForm">
-                                        <i class="oi oi-person me-2"></i>Добавить нового клиента
-                                    </button>
+                        }
+                        else
+                        {
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="border-bottom pb-2">Ваши данные</h5>
+                                </div>
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>@AuthService.CurrentClient?.FullName</strong>
+                                                <br />
+                                                <small>Телефон: @AuthService.CurrentClient?.Phone</small>
+                                                @if (AuthService.CurrentClient?.IsPro == true)
+                                                {
+                                                    <br />
+                                                    <span class="badge bg-warning">Профессионал</span>
+                                                    <small>Скидка: @AuthService.CurrentClient?.PersonalDiscount%</small>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        }
 
-                        <!-- Выбранный клиент -->
-                        @if (selectedClient != null)
+                        <!-- Выбранный клиент (для операторов/админов) -->
+                        @if (!AuthService.IsClient && selectedClient != null)
                         {
                             <div class="alert alert-info">
                                 <div class="d-flex justify-content-between align-items-center">
@@ -74,7 +101,7 @@
                         <div class="row mb-4">
                             <div class="col-12">
                                 <h5 class="border-bottom pb-2">Услуги</h5>
-                                
+
                                 <div class="mb-3">
                                     <label class="form-label">Добавить услугу</label>
                                     <div class="row g-2">
@@ -88,7 +115,7 @@
                                             </select>
                                         </div>
                                         <div class="col-md-2">
-                                            <InputNumber @bind-Value="serviceQuantity" class="form-control" placeholder="Кол-во" />
+                                            <InputNumber @bind-Value="serviceQuantity" class="form-control" placeholder="Кол-во" min="1" />
                                         </div>
                                         <div class="col-md-3">
                                             <div class="form-check mt-2">
@@ -97,7 +124,7 @@
                                             </div>
                                         </div>
                                         <div class="col-md-3">
-                                            <button type="button" class="btn btn-success w-100" @onclick="AddService" 
+                                            <button type="button" class="btn btn-success w-100" @onclick="AddService"
                                                     disabled="@(selectedServiceId == 0 || serviceQuantity <= 0)">
                                                 <i class="oi oi-plus me-2"></i>Добавить
                                             </button>
@@ -139,7 +166,7 @@
                                                         </td>
                                                         <td><strong>@((item.Quantity * item.UnitPrice).ToString("C"))</strong></td>
                                                         <td>
-                                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            <button type="button" class="btn btn-sm btn-outline-danger"
                                                                     @onclick="() => RemoveService(item)">
                                                                 <i class="oi oi-trash"></i>
                                                             </button>
@@ -157,7 +184,7 @@
                         <div class="row mb-4">
                             <div class="col-12">
                                 <h5 class="border-bottom pb-2">Товары</h5>
-                                
+
                                 <div class="mb-3">
                                     <label class="form-label">Добавить товар</label>
                                     <div class="row g-2">
@@ -171,10 +198,10 @@
                                             </select>
                                         </div>
                                         <div class="col-md-2">
-                                            <InputNumber @bind-Value="productQuantity" class="form-control" placeholder="Кол-во" />
+                                            <InputNumber @bind-Value="productQuantity" class="form-control" placeholder="Кол-во" min="1" />
                                         </div>
                                         <div class="col-md-5">
-                                            <button type="button" class="btn btn-success w-100" @onclick="AddProduct" 
+                                            <button type="button" class="btn btn-success w-100" @onclick="AddProduct"
                                                     disabled="@(selectedProductId == 0 || productQuantity <= 0)">
                                                 <i class="oi oi-plus me-2"></i>Добавить товар
                                             </button>
@@ -205,7 +232,7 @@
                                                         <td>@item.UnitPrice.ToString("C")</td>
                                                         <td><strong>@((item.Quantity * item.UnitPrice).ToString("C"))</strong></td>
                                                         <td>
-                                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            <button type="button" class="btn btn-sm btn-outline-danger"
                                                                     @onclick="() => RemoveProduct(item)">
                                                                 <i class="oi oi-trash"></i>
                                                             </button>
@@ -224,15 +251,15 @@
                             <div class="col-md-8">
                                 <div class="mb-3">
                                     <label class="form-label">Примечание к заказу</label>
-                                    <InputTextArea @bind-Value="orderModel.Notes" class="form-control" rows="3" 
-                                                  placeholder="Дополнительная информация о заказе..." />
+                                    <InputTextArea @bind-Value="orderModel.Notes" class="form-control" rows="3"
+                                                   placeholder="Дополнительная информация о заказе..." />
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="card bg-light">
                                     <div class="card-body">
                                         <h6 class="card-title">Итоговая сумма</h6>
-                                        
+
                                         <div class="d-flex justify-content-between mb-2">
                                             <span>Услуги:</span>
                                             <span>@servicesTotal.ToString("C")</span>
@@ -241,25 +268,31 @@
                                             <span>Товары:</span>
                                             <span>@productsTotal.ToString("C")</span>
                                         </div>
-                                        
-                                        @if (selectedClient?.IsPro == true && selectedClient.PersonalDiscount > 0)
+
+                                        @{
+                                            var currentClient = AuthService.IsClient ? AuthService.CurrentClient : selectedClient;
+                                        }
+                                        @if (currentClient?.IsPro == true && currentClient.PersonalDiscount > 0)
                                         {
                                             <div class="d-flex justify-content-between mb-2 text-success">
-                                                <span>Скидка (@selectedClient.PersonalDiscount%):</span>
+                                                <span>Скидка (@currentClient.PersonalDiscount%):</span>
                                                 <span>-@discountAmount.ToString("C")</span>
                                             </div>
                                         }
-                                        
+
                                         <hr />
                                         <div class="d-flex justify-content-between mb-2">
                                             <strong>Итого:</strong>
                                             <strong class="text-primary fs-5">@totalAmount.ToString("C")</strong>
                                         </div>
 
-                                        <div class="form-check mb-3">
-                                            <input type="checkbox" @bind="orderModel.IsPaid" class="form-check-input" id="isPaid" />
-                                            <label class="form-check-label" for="isPaid">Заказ оплачен</label>
-                                        </div>
+                                        @if (AuthService.IsOperator || AuthService.IsAdmin)
+                                        {
+                                            <div class="form-check mb-3">
+                                                <input type="checkbox" @bind="orderModel.IsPaid" class="form-check-input" id="isPaid" />
+                                                <label class="form-check-label" for="isPaid">Заказ оплачен</label>
+                                            </div>
+                                        }
 
                                         <button type="submit" class="btn btn-primary w-100" disabled="@(!CanCreateOrder)">
                                             <i class="oi oi-check me-2"></i>Создать заказ
@@ -305,17 +338,45 @@
     // Вычисляемые свойства
     private decimal servicesTotal => orderServices.Sum(s => s.Quantity * s.UnitPrice);
     private decimal productsTotal => orderProducts.Sum(p => p.Quantity * p.UnitPrice);
-    private decimal discountAmount => selectedClient?.IsPro == true ? (servicesTotal + productsTotal) * (selectedClient.PersonalDiscount / 100) : 0;
+
+    private decimal discountAmount
+    {
+        get
+        {
+            var currentClient = AuthService.IsClient ? AuthService.CurrentClient : selectedClient;
+            return currentClient?.IsPro == true ? (servicesTotal + productsTotal) * (currentClient.PersonalDiscount / 100) : 0;
+        }
+    }
+
     private decimal totalAmount => servicesTotal + productsTotal - discountAmount;
 
-    private bool CanCreateOrder => selectedClient != null && (orderServices.Any() || orderProducts.Any());
+    private bool CanCreateOrder
+    {
+        get
+        {
+            if (AuthService.IsClient)
+            {
+                return AuthService.CurrentClient != null && (orderServices.Any() || orderProducts.Any());
+            }
+            else
+            {
+                return selectedClient != null && (orderServices.Any() || orderProducts.Any());
+            }
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        if (!AuthService.IsAuthenticated || (!AuthService.IsOperator && !AuthService.IsAdmin))
+        if (!AuthService.IsAuthenticated)
         {
-            Navigation.NavigateTo("/orders");
+            Navigation.NavigateTo("/login");
             return;
+        }
+
+        // Для клиентов автоматически устанавливаем текущего клиента
+        if (AuthService.IsClient)
+        {
+            selectedClient = AuthService.CurrentClient;
         }
 
         await LoadData();
@@ -325,14 +386,12 @@
     {
         try
         {
-            // Загружаем реальные данные из базы
             services = await DataService.GetServicesAsync();
             availableProducts = (await DataService.GetProductsAsync()).Where(p => p.StockQuantity > 0).ToList();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Ошибка загрузки данных: {ex.Message}");
-            // Если данные не загрузились, показываем пустые списки
             services = new List<Service>();
             availableProducts = new List<Product>();
         }
@@ -345,11 +404,9 @@
 
         try
         {
-            // Ищем клиента в базе по телефону
             selectedClient = await DataService.GetClientByPhoneAsync(searchPhone);
             if (selectedClient == null)
             {
-                // Можно показать сообщение, что клиент не найден
                 Console.WriteLine($"Клиент с телефоном {searchPhone} не найден");
             }
             StateHasChanged();
@@ -360,20 +417,42 @@
         }
     }
 
-    private void ShowNewClientForm()
+    private async Task ShowNewClientForm()
     {
-        // Здесь будет форма создания нового клиента
-        Console.WriteLine("Открытие формы создания нового клиента");
-        // Временно используем тестового клиента для демонстрации
-        selectedClient = new Client 
-        { 
-            Id = 0, 
-            FullName = "Новый клиент", 
-            Phone = searchPhone,
-            IsPro = false,
-            PersonalDiscount = 0.00m
-        };
-        StateHasChanged();
+        if (string.IsNullOrEmpty(searchPhone))
+        {
+            Console.WriteLine("Введите номер телефона для нового клиента");
+            return;
+        }
+
+        try
+        {
+            var existingClient = await DataService.GetClientByPhoneAsync(searchPhone);
+            if (existingClient != null)
+            {
+                selectedClient = existingClient;
+            }
+            else
+            {
+                var newClient = new Client
+                {
+                    UserId = 1, // Временно фиксированный UserId
+                    FullName = "Новый клиент",
+                    Phone = searchPhone,
+                    Email = "",
+                    IsPro = false,
+                    PersonalDiscount = 0.00m
+                };
+
+                await DataService.AddClientAsync(newClient);
+                selectedClient = await DataService.GetClientByPhoneAsync(searchPhone);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка создания клиента: {ex.Message}");
+        }
     }
 
     private void ClearClient()
@@ -397,8 +476,7 @@
         };
 
         orderServices.Add(orderService);
-        
-        // Сброс формы
+
         selectedServiceId = 0;
         serviceQuantity = 1;
         isUrgent = false;
@@ -416,7 +494,6 @@
         var product = availableProducts.FirstOrDefault(p => p.Id == selectedProductId);
         if (product == null) return;
 
-        // Проверяем наличие товара
         if (product.StockQuantity < productQuantity)
         {
             Console.WriteLine($"Недостаточно товара на складе. Доступно: {product.StockQuantity}");
@@ -431,8 +508,7 @@
         };
 
         orderProducts.Add(orderProduct);
-        
-        // Сброс формы
+
         selectedProductId = 0;
         productQuantity = 1;
         StateHasChanged();
@@ -450,15 +526,26 @@
 
         try
         {
-            // Создаем объект заказа для сохранения
+            // Определяем ID клиента
+            int clientId;
+            if (AuthService.IsClient)
+            {
+                clientId = AuthService.CurrentClient!.Id;
+            }
+            else
+            {
+                clientId = selectedClient!.Id;
+            }
+
             var newOrder = new Order
             {
-                ClientId = selectedClient!.Id,
-                KioskId = 1, // Временно фиксированный киоск
-                BranchId = 1, // Временно фиксированный филиал
+                ClientId = clientId,
+                KioskId = 1,
+                BranchId = 1,
                 Status = "принят",
                 TotalAmount = totalAmount,
                 IsPaid = orderModel.IsPaid,
+                Notes = orderModel.Notes,
                 CreatedAt = DateTime.Now,
                 OrderServices = orderServices.Select(os => new OrderService
                 {
@@ -472,17 +559,15 @@
                     ProductId = op.Product.Id,
                     Quantity = op.Quantity,
                     UnitPrice = op.UnitPrice,
-                    KioskId = 1, // Временно фиксированный киоск
+                    KioskId = 1,
                     CreatedAt = DateTime.Now
                 }).ToList()
             };
 
-            // Сохраняем заказ в базу
             await DataService.AddOrderAsync(newOrder);
-            
+
             Console.WriteLine($"Заказ успешно создан! ID: {newOrder.Id}");
-            
-            // Перенаправляем на список заказов
+
             Navigation.NavigateTo("/orders");
         }
         catch (Exception ex)
