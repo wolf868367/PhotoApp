@@ -25,13 +25,6 @@
             <a href="/login" class="btn btn-primary">Войти</a>
         </div>
     }
-    else if (!AuthService.IsOperator && !AuthService.IsAdmin)
-    {
-        <div class="alert alert-warning text-center">
-            <h4>Недостаточно прав</h4>
-            <p>Для просмотра товаров требуется роль оператора или администратора.</p>
-        </div>
-    }
     else
     {
         <!-- Список товаров -->
@@ -178,10 +171,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthService.IsAuthenticated && (AuthService.IsOperator || AuthService.IsAdmin))
-        {
             await LoadProducts();
-        }
     }
 
     private async Task LoadProducts()

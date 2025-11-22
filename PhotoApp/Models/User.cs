@@ -1,8 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 
 namespace PhotoApp.Models
 {
+    [Table("users")]
     public class ApplicationUser
     {
         [Key]
@@ -20,6 +22,7 @@ namespace PhotoApp.Models
         public Role Role { get; set; } = null!;
     }
 
+    [Table("roles")]
     public class Role
     {
         [Key]
